@@ -19,6 +19,8 @@ export interface RawCartItem {
 
 export interface RawProduct extends PageFlags {
   title: string | null
+  coupon: string | null
+  deal: string | null
   image: string | null
   priceText: string | null
   availabilityText: string | null
@@ -97,6 +99,23 @@ export function extractProduct(): RawProduct {
   const landing = document.querySelector('#landingImage, #imgBlkFront') as HTMLImageElement | null
   return {
     title: text(document.querySelector('#productTitle')),
+    // Only keep text that actually talks about a coupon / deal; these blocks also hold other promos.
+    coupon:
+      [
+        '#couponText',
+        '#promoPriceBlockMessage_feature_div label[id^="couponText"]',
+        '#vpcButton .a-color-success',
+        '#couponBadgeRegularVpc',
+        '#promoPriceBlockMessage_feature_div'
+      ]
+        .map((s) => text(document.querySelector(s)))
+        .find((t) => !!t && /coupon|cup[oó]n/i.test(t))
+        ?.slice(0, 120) ?? null,
+    deal:
+      ['#dealBadge_feature_div', '#dealBadgeSupportingText', '.dealBadge']
+        .map((s) => text(document.querySelector(s)))
+        .find((t) => !!t && /deal|oferta/i.test(t))
+        ?.slice(0, 80) ?? null,
     image: landing?.getAttribute('data-old-hires') || landing?.src || null,
     captcha: !!document.querySelector('form[action*="validateCaptcha"]'),
     loggedOut: !account || /\/ap\/signin/.test(accountHref) || /sign in|identif/i.test(accountText ?? ''),

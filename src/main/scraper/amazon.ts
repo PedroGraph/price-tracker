@@ -84,6 +84,8 @@ export class Scraper {
       shipping: /free|gratis/i.test(raw.shippingText ?? '') ? 0 : parsePrice(raw.shippingText, copPerUsd),
       seller: raw.seller,
       title: raw.title,
+      coupon: raw.coupon,
+      deal: raw.deal,
       image: raw.image && /^https:/.test(raw.image) ? raw.image : null
     }
   }

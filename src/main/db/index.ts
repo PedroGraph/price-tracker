@@ -56,7 +56,8 @@ const MIGRATIONS = [
    CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
   `ALTER TABLE price_history ADD COLUMN condition TEXT;`,
   `ALTER TABLE products ADD COLUMN target_price REAL;`,
-  `ALTER TABLE products ADD COLUMN source TEXT NOT NULL DEFAULT 'cart';`
+  `ALTER TABLE products ADD COLUMN source TEXT NOT NULL DEFAULT 'cart';`,
+  `ALTER TABLE products ADD COLUMN coupon TEXT; ALTER TABLE products ADD COLUMN deal TEXT;`
 ]
 
 export function openDb(file = join(app.getPath('userData'), 'tracker.db')): void {
@@ -100,12 +101,15 @@ function toProduct(r: ProductRow): Product {
     backInStock: false,
     targetPrice: (r.target_price as number) ?? null,
     source: (r.source as Product['source']) ?? 'cart',
+    coupon: (r.coupon as string) ?? null,
+    deal: (r.deal as string) ?? null,
     lowestPrice: null,
     lowest30: null
   }
 }
 
-const ALERT_TYPES = "('price_up','price_down','out_of_stock','back_in_stock','target_reached','all_time_low')"
+const ALERT_TYPES =
+  "('price_up','price_down','out_of_stock','back_in_stock','target_reached','all_time_low','coupon_added','deal_started')"
 const RUN = 'substr(checked_at, 1, 16)'
 
 /** Adds the derived fields the dashboard shows. */
@@ -231,6 +235,10 @@ export function addManualProduct(asin: string): void {
 /** Stops tracking a product; its history is kept. */
 export function deactivateProduct(asin: string): void {
   db.prepare('UPDATE products SET active = 0 WHERE asin = ?').run(asin)
+}
+
+export function setPromotions(asin: string, coupon: string | null, deal: string | null): void {
+  db.prepare('UPDATE products SET coupon = ?, deal = ? WHERE asin = ?').run(coupon, deal, asin)
 }
 
 export function setProductTitle(asin: string, title: string): void {

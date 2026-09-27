@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateReading, extraEvents, parseAsin, parsePrice, thresholdInUsd } from '../src/shared/pricing'
+import { evaluateReading, extraEvents, parseAsin, parsePrice, priceWithCoupon, promoEvents, thresholdInUsd } from '../src/shared/pricing'
 
 const pct5 = { unit: 'percent' as const, value: 5 }
 const base = { basePrice: 100, wasAvailable: true, available: true, threshold: pct5, copPerUsd: 4000 }
@@ -94,5 +94,23 @@ describe('parseAsin', () => {
     expect(parseAsin('https://www.amazon.com/s?k=laptop')).toBeNull()
     expect(parseAsin('https://amzn.to/3xYzAbC')).toBeNull()
     expect(parseAsin('hello')).toBeNull()
+  })
+})
+
+describe('coupons and deals', () => {
+  it('computes the price after a coupon', () => {
+    expect(priceWithCoupon(100, 'Apply $20 coupon')).toBe(80)
+    expect(priceWithCoupon(100, 'Save 15% with coupon')).toBe(85)
+    expect(priceWithCoupon(59.99, 'Aplicar cupón de US$5')).toBe(54.99)
+    expect(priceWithCoupon(10, 'Apply $20 coupon')).toBe(0)
+    expect(priceWithCoupon(100, 'Coupon available')).toBeNull()
+    expect(priceWithCoupon(null, 'Apply $20 coupon')).toBeNull()
+  })
+
+  it('alerts when a coupon or deal appears, not while it stays', () => {
+    const none = { coupon: null, deal: null }
+    expect(promoEvents(none, { coupon: 'Apply $5 coupon', deal: 'Limited time deal' })).toEqual(['coupon_added', 'deal_started'])
+    expect(promoEvents({ coupon: 'Apply $5 coupon', deal: null }, { coupon: 'Apply $5 coupon', deal: null })).toEqual([])
+    expect(promoEvents({ coupon: 'x coupon', deal: 'deal' }, none)).toEqual([])
   })
 })

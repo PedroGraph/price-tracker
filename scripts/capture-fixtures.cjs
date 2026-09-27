@@ -78,7 +78,9 @@ app.whenReady().then(async () => {
         '#corePriceDisplay_desktop_feature_div',
         '#availability',
         '#mir-layout-DELIVERY_BLOCK',
-        '#merchantInfoFeature_feature_div'
+        '#merchantInfoFeature_feature_div',
+        '#promoPriceBlockMessage_feature_div',
+        '#dealBadge_feature_div'
       ],
       'product.html'
     )

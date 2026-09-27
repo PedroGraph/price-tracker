@@ -1,5 +1,5 @@
 import { Notification } from 'electron'
-import { formatCop, formatUsd } from '@shared/pricing'
+import { formatCop, formatUsd, priceWithCoupon } from '@shared/pricing'
 import type { EventType, Product } from '@shared/types'
 import { getResendKey, getSettings } from '../settings'
 
@@ -19,7 +19,9 @@ const LABELS: Record<EventType, string> = {
   back_in_stock: 'Back in stock',
   tracking_started: 'Tracking started',
   target_reached: 'Target price reached',
-  all_time_low: 'New all-time low'
+  all_time_low: 'New all-time low',
+  coupon_added: 'Coupon available',
+  deal_started: 'Deal started'
 }
 
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
@@ -36,6 +38,11 @@ function summary(a: Alert, rate: number | null): string {
   }
   if (a.type === 'back_in_stock') return `Available again at ${money(a.newPrice, rate)}`
   if (a.type === 'target_reached') return `Now ${money(a.newPrice, rate)}, at or below your target of ${money(a.product.targetPrice, rate)}`
+  if (a.type === 'coupon_added') {
+    const after = priceWithCoupon(a.newPrice, a.product.coupon)
+    return `${a.product.coupon}${after !== null ? ` → ${money(after, rate)} after the coupon` : ''}`
+  }
+  if (a.type === 'deal_started') return `${a.product.deal} at ${money(a.newPrice, rate)}`
   if (a.type === 'all_time_low') return `${money(a.newPrice, rate)} is the lowest price since tracking started`
   return 'The product is currently unavailable'
 }

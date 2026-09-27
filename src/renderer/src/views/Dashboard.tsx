@@ -188,6 +188,8 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
             p.lastPrice <= p.lowestPrice && p.lastPrice < p.firstPrice && (
             <span className="badge good">Lowest ever</span>
           )}
+          {p.deal && <span className="badge deal">{p.deal}</span>}
+          {p.coupon && <span className="badge good">Coupon</span>}
           {p.sellerCount > 1 && <span className="badge">{p.sellerCount} sellers</span>}
           {p.source === 'manual' && <span className="badge">Not in cart</span>}
         </div>

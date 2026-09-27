@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { evaluateReading, extraEvents } from '@shared/pricing'
+import { evaluateReading, extraEvents, promoEvents } from '@shared/pricing'
 import type { Status } from '@shared/types'
 import * as db from './db'
 import { cachedRate, currentRate, refreshRate } from './exchange'
@@ -84,7 +84,7 @@ async function track(): Promise<RunOutcome> {
     for (const product of db.listProducts(true)) {
       checked++
       await scraper.pause()
-      const { image, title, readable, ...page } = await scraper.product(product.asin, rate)
+      const { image, title, coupon, deal, readable, ...page } = await scraper.product(product.asin, rate)
       if (title && product.title === product.asin) db.setProductTitle(product.asin, title)
       if (image && (!product.image || /loadIndicators/.test(product.image))) db.setProductImage(product.asin, image)
 
@@ -95,6 +95,9 @@ async function track(): Promise<RunOutcome> {
         continue
       }
       const before = db.priceStats(product.asin)
+      // On the first check there's nothing to compare with, so no "coupon appeared" alert.
+      const promos = product.lastCheckedAt ? promoEvents(product, { coupon, deal }) : []
+      db.setPromotions(product.asin, coupon, deal)
       db.addReading({ asin: product.asin, ...page, condition: null, source: 'buybox' })
 
       // With "other sellers" on, the tracked price is the cheapest offer (shipping excluded).
@@ -126,10 +129,10 @@ async function track(): Promise<RunOutcome> {
         readingsBefore: before.readings,
         baseEvents: result.events
       })
-      for (const type of [...result.events, ...extra]) {
+      for (const type of [...result.events, ...extra, ...promos]) {
         db.addEvent(product.asin, type, product.basePrice, best.price)
         if (type !== 'tracking_started') {
-          alerts.push({ product, type, oldPrice: product.basePrice, newPrice: best.price, ...best })
+          alerts.push({ product: { ...product, coupon, deal }, type, oldPrice: product.basePrice, newPrice: best.price, ...best })
         }
       }
       db.updateProductState(product.asin, {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { thresholdInUsd } from '@shared/pricing'
+import { priceWithCoupon, thresholdInUsd } from '@shared/pricing'
 import type { PriceReading, Product, Threshold, ThresholdUnit, TrackerEvent } from '@shared/types'
 import type { Notify } from '../App'
 import { useMoney } from '../money'
@@ -14,7 +14,9 @@ const EVENT_LABEL: Record<TrackerEvent['type'], string> = {
   back_in_stock: 'Back in stock',
   tracking_started: 'Tracking started',
   target_reached: 'Target price reached',
-  all_time_low: 'New all-time low'
+  all_time_low: 'New all-time low',
+  coupon_added: 'Coupon available',
+  deal_started: 'Deal started'
 }
 
 export const UNITS: { value: ThresholdUnit; label: string }[] = [
@@ -160,6 +162,19 @@ export function ProductDetail({
             {product.lastShipping ? <> · + {fmt(product.lastShipping)} shipping (not counted)</> : null}
             {product.lastSeller && <> · {product.lastSeller}</>}
           </div>
+          {(product.coupon || product.deal) && (
+            <div className="promos">
+              {product.deal && <span className="badge deal">{product.deal}</span>}
+              {product.coupon && (
+                <span className="badge good">
+                  {product.coupon}
+                  {priceWithCoupon(product.lastPrice, product.coupon) !== null && (
+                    <> · ≈ {fmt(priceWithCoupon(product.lastPrice, product.coupon))} with coupon</>
+                  )}
+                </span>
+              )}
+            </div>
+          )}
           <div className="base-row">
             <span className="muted">Lowest </span>
             <strong>{fmt(product.lowestPrice)}</strong> ever · {fmt(product.lowest30)} in 30 days

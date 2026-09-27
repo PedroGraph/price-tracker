@@ -70,6 +70,26 @@ describe.runIf(has('signed-in/cart.html'))('signed-in pages', () => {
   })
 })
 
+describe('promotions (synthetic markup)', () => {
+  const account = '<a id="nav-link-accountList" href="/gp/css/homepage.html"><span id="nav-link-accountList-nav-line-1">Hello, Test</span></a>'
+
+  it('reads a clippable coupon and a deal badge', () => {
+    document.body.innerHTML = `${account}
+      <div id="promoPriceBlockMessage_feature_div"><label id="couponTextpctch123">Apply $20 coupon</label> Terms</div>
+      <div id="dealBadge_feature_div"><span>Limited time deal</span></div>`
+    const p = extractProduct()
+    expect(p.coupon).toBe('Apply $20 coupon')
+    expect(p.deal).toBe('Limited time deal')
+  })
+
+  it('ignores promo blocks that are not coupons or deals', () => {
+    document.body.innerHTML = `${account}<div id="promoPriceBlockMessage_feature_div">Get 5% back with Prime Visa</div>`
+    const p = extractProduct()
+    expect(p.coupon).toBeNull()
+    expect(p.deal).toBeNull()
+  })
+})
+
 describe('page structure checks', () => {
   it('flags a page without the cart container', () => {
     document.body.innerHTML = '<a id="nav-link-accountList" href="/gp/css/homepage.html"><span id="nav-link-accountList-nav-line-1">Hello, Test</span></a><div id="new-cart-layout"></div>'

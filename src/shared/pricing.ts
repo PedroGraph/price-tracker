@@ -87,6 +87,30 @@ export function extraEvents(input: {
   return events
 }
 
+/**
+ * Price after clipping a coupon such as "Apply $20 coupon", "Save 15% with coupon"
+ * or "Aplicar cupón de US$5". Null when the coupon text has no amount we understand.
+ */
+export function priceWithCoupon(price: number | null, coupon: string | null): number | null {
+  if (price === null || !coupon) return null
+  const pct = coupon.match(/(\d+(?:\.\d+)?)\s*%/)
+  if (pct) return round2(price * (1 - Number(pct[1]) / 100))
+  const amount = coupon.match(/\$\s*(\d+(?:\.\d+)?)/)
+  if (amount) return round2(Math.max(0, price - Number(amount[1])))
+  return null
+}
+
+/** Alerts for promotions that appear on the product page. */
+export function promoEvents(
+  before: { coupon: string | null; deal: string | null },
+  now: { coupon: string | null; deal: string | null }
+): EventType[] {
+  const events: EventType[] = []
+  if (now.coupon && !before.coupon) events.push('coupon_added')
+  if (now.deal && !before.deal) events.push('deal_started')
+  return events
+}
+
 /** Pulls the ASIN out of an Amazon product URL (or accepts a bare ASIN). */
 export function parseAsin(input: string): string | null {
   const text = input.trim()

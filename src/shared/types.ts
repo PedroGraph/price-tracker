@@ -38,6 +38,10 @@ export interface Product {
   source: 'cart' | 'manual'
   /** Alert once when the price drops to this USD amount or below. */
   targetPrice: number | null
+  /** Coupon text shown on the product page, e.g. "Apply $20 coupon". */
+  coupon: string | null
+  /** Deal badge, e.g. "Limited time deal". */
+  deal: string | null
   /** Lowest tracked price ever and in the last 30 days. */
   lowestPrice: number | null
   lowest30: number | null
@@ -72,6 +76,8 @@ export type EventType =
   | 'tracking_started'
   | 'target_reached'
   | 'all_time_low'
+  | 'coupon_added'
+  | 'deal_started'
 
 export interface TrackerEvent {
   id: number

@@ -2,6 +2,8 @@ import { Notification } from 'electron'
 import { formatCop, formatUsd, priceWithCoupon } from '@shared/pricing'
 import type { EventType, Product } from '@shared/types'
 import { getResendKey, getSettings } from '../settings'
+import { isQuiet } from '@shared/schedule'
+import { getSetting, setSetting } from '../db'
 import { toTelegramHtml } from './format'
 import { sendTelegram } from './telegram'
 
@@ -116,12 +118,37 @@ function telegramAlerts(alerts: Alert[], rate: number | null): string {
     .join('\n\n')
 }
 
+/** Alerts held back during quiet hours, kept in the settings table so they survive a restart. */
+const queued = (): Alert[] => getSetting<Alert[]>('queuedAlerts', [])
+
+export function inQuietHours(now = new Date()): boolean {
+  const { quietEnabled, quietStart, quietEnd } = getSettings()
+  return quietEnabled && isQuiet(now, quietStart, quietEnd)
+}
+
 /**
- * Sends price alerts to every enabled channel. Channels are independent: one failing
- * doesn't stop the others. Throws the first failure afterwards so it can be reported.
+ * Sends price alerts to every enabled channel, or queues them during quiet hours.
+ * Channels are independent: one failing doesn't stop the others. Throws the first
+ * failure afterwards so it can be reported.
  */
 export async function deliverAlerts(alerts: Alert[], rate: number | null): Promise<void> {
   if (alerts.length === 0) return
+  if (inQuietHours()) {
+    setSetting('queuedAlerts', [...queued(), ...alerts])
+    return
+  }
+  await send(alerts, rate)
+}
+
+/** Sends what was held during quiet hours, once they're over. */
+export async function flushQueuedAlerts(rate: number | null): Promise<void> {
+  const pending = queued()
+  if (pending.length === 0 || inQuietHours()) return
+  await send(pending, rate)
+  setSetting('queuedAlerts', [])
+}
+
+async function send(alerts: Alert[], rate: number | null): Promise<void> {
   showDesktop(alerts, rate)
   const results = await Promise.allSettled([sendEmail(alerts, rate), sendTelegram(telegramAlerts(alerts, rate))])
   const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')

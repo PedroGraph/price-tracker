@@ -14,6 +14,18 @@ const INTERVALS = [
   { value: '240', label: '4 h' }
 ]
 
+export function HourSelect({ value, onChange, disabled }: { value: number; onChange: (h: number) => void; disabled?: boolean }) {
+  return (
+    <select className="hour" value={value} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))}>
+      {Array.from({ length: 24 }, (_, h) => (
+        <option key={h} value={h}>
+          {String(h).padStart(2, '0')}:00
+        </option>
+      ))}
+    </select>
+  )
+}
+
 const cleanError = (e: unknown): string =>
   e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
 
@@ -282,6 +294,23 @@ export function SettingsView({
           />
           {equivalent && <span className="muted">{equivalent}</span>}
         </div>
+      </section>
+
+      <section className="card">
+        <div className="row between">
+          <div>
+            <h3>Quiet hours</h3>
+            <p className="sub">Price alerts in this window wait and arrive together when it ends.</p>
+          </div>
+          <Toggle on={draft.quietEnabled} onChange={(v) => save({ quietEnabled: v })} label="Quiet hours" />
+        </div>
+        <div className="row" style={{ marginTop: 14 }}>
+          <span className="muted">From</span>
+          <HourSelect value={draft.quietStart} onChange={(h) => save({ quietStart: h })} disabled={!draft.quietEnabled} />
+          <span className="muted">to</span>
+          <HourSelect value={draft.quietEnd} onChange={(h) => save({ quietEnd: h })} disabled={!draft.quietEnabled} />
+        </div>
+        <p className="hint">Warnings about the app itself (signed out of Amazon, pages can't be read) are always sent.</p>
       </section>
 
       <section className="card">

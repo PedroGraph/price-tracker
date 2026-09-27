@@ -4,7 +4,7 @@ import type { Status } from '@shared/types'
 import * as db from './db'
 import { cachedRate, currentRate, refreshRate } from './exchange'
 import { recordOutcome, RETRY_DELAYS_MIN, type RunOutcome } from './health'
-import { deliverAlerts, type Alert } from './notify'
+import { deliverAlerts, flushQueuedAlerts, type Alert } from './notify'
 import { PageChangedError, Scraper, SessionError } from './scraper/amazon'
 import { getSettings } from './settings'
 
@@ -156,6 +156,7 @@ async function track(): Promise<RunOutcome> {
   }
 
   try {
+    await flushQueuedAlerts(rate)
     await deliverAlerts(alerts, rate)
   } catch (err) {
     return { kind: 'error', message: `Sending alerts failed: ${err instanceof Error ? err.message : String(err)}` }

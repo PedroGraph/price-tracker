@@ -110,6 +110,10 @@ export interface Settings {
   telegramEnabled: boolean
   telegramChatId: string | null
   hasTelegramToken: boolean
+  /** Price alerts during these local hours wait until the window ends. */
+  quietEnabled: boolean
+  quietStart: number
+  quietEnd: number
 }
 
 export type SessionState = 'unknown' | 'logged_in' | 'logged_out' | 'captcha'

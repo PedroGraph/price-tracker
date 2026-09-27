@@ -14,7 +14,10 @@ const DEFAULTS: Omit<Settings, Derived> = {
   launchAtStartup: false,
   manualRate: null,
   telegramEnabled: false,
-  telegramChatId: null
+  telegramChatId: null,
+  quietEnabled: false,
+  quietStart: 22,
+  quietEnd: 7
 }
 
 export function getSettings(): Settings {

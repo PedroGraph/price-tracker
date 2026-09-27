@@ -61,6 +61,16 @@ describe.runIf(has('signed-in/cart.html'))('signed-in pages', () => {
     }
   })
 
+  it('reads every seller from the offers panel', () => {
+    load('signed-in/offers.html')
+    const { offers } = extractOffers()
+    expect(offers.length).toBeGreaterThanOrEqual(2)
+    for (const o of offers) {
+      expect(o.priceText).toMatch(/\d/)
+      expect(o.seller).toBeTruthy()
+    }
+  })
+
   it('reads the product price, availability and seller', () => {
     load('signed-in/product.html')
     const p = extractProduct()

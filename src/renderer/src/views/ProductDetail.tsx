@@ -291,8 +291,9 @@ export function ProductDetail({
                   {base !== null && <ReferenceLine y={toDisplay(base)} stroke="var(--faint)" strokeDasharray="5 5" />}
                   {lower !== null && <ReferenceLine y={toDisplay(lower)} stroke="var(--amber)" strokeDasharray="5 5" />}
                   {upper !== null && <ReferenceLine y={toDisplay(upper)} stroke="var(--amber)" strokeDasharray="5 5" />}
+                  {/* A price holds until the next check, so draw steps; a smooth curve invents prices in between. */}
                   <Area
-                    type="monotone"
+                    type="stepAfter"
                     dataKey="v"
                     stroke="var(--teal)"
                     strokeWidth={2}

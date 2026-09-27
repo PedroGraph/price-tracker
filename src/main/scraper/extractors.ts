@@ -147,12 +147,22 @@ export function extractProduct(): RawProduct {
 export function extractOffers(): PageFlags & { offers: RawOffer[] } {
   const text = (el: Element | null | undefined): string | null => el?.textContent?.replace(/\s+/g, ' ').trim() || null
   const offers: RawOffer[] = []
+  // In this panel `.a-offscreen` is often empty; the visible price is split into symbol / whole / fraction.
+  const priceOf = (el: Element): string | null => {
+    const offscreen = text(el.querySelector('.a-price .a-offscreen')) ?? text(el.querySelector('.aok-offscreen'))
+    if (offscreen && /\d/.test(offscreen)) return offscreen
+    const whole = text(el.querySelector('.a-price-whole'))?.replace(/[^\d,]/g, '')
+    if (!whole) return null
+    const fraction = text(el.querySelector('.a-price-fraction'))?.replace(/\D/g, '') ?? '00'
+    return `${text(el.querySelector('.a-price-symbol')) ?? '$'}${whole}.${fraction}`
+  }
   document.querySelectorAll('#aod-pinned-offer, #aod-offer').forEach((el) => {
+    const priceText = priceOf(el)
     // The pinned block is present even when it says "no featured offers".
-    if (!el.querySelector('.a-price .a-offscreen')) return
+    if (!priceText) return
     offers.push({
       condition: text(el.querySelector('#aod-offer-heading h5, #aod-offer-heading')),
-      priceText: text(el.querySelector('.a-price .a-offscreen')),
+      priceText,
       shippingText: el.querySelector('[data-csa-c-delivery-price]')?.getAttribute('data-csa-c-delivery-price') ?? null,
       seller: text(el.querySelector('#aod-offer-soldBy a, #aod-offer-soldBy .a-size-small.a-color-base'))
     })

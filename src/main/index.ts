@@ -9,6 +9,7 @@ import * as db from './db'
 import { maybeSendDigest } from './digest'
 import { cachedRate, currentRate, refreshRate } from './exchange'
 import { flushQueuedAlerts, sendTestEmail } from './notify'
+import { APP_URL, registerAppScheme, serveRenderer } from './appProtocol'
 import { amazonSession, clearAmazonSession, flushAmazonSession, openAmazonWindow } from './scraper/amazon'
 import { denyPermissions, installGlobalGuards, isTrustedSender, openExternal, reencryptCookies } from './security'
 import { getSettings, saveSettings, setResendKey, setSecret } from './settings'
@@ -24,7 +25,15 @@ let quitting = false
 // the product never moves (or loses) the database and the Amazon session. Development runs
 // use their own folder: the installed app encrypts its cookies and a dev build can't read them.
 app.setPath('userData', join(app.getPath('appData'), app.isPackaged ? 'amazon-price-tracker' : 'amazon-price-tracker-dev'))
+// Chromium debugging switches would let another program read the pages and the Amazon
+// cookies of the installed app (there's no fuse for these), so refuse to start with them.
+const DEBUG_SWITCHES = ['remote-debugging-port', 'remote-debugging-pipe', 'remote-debugging-address', 'inspect', 'inspect-brk']
+if (app.isPackaged && DEBUG_SWITCHES.some((s) => app.commandLine.hasSwitch(s))) {
+  app.exit(1)
+}
+
 installGlobalGuards()
+registerAppScheme()
 
 // `--quit` with no running instance to tell has nothing to do.
 if (!app.requestSingleInstanceLock() || process.argv.includes('--quit')) app.quit()
@@ -80,7 +89,7 @@ function createWindow(): void {
   win.webContents.on('will-navigate', (e) => e.preventDefault())
 
   if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL)
-  else void win.loadFile(join(__dirname, '../renderer/index.html'))
+  else void win.loadURL(APP_URL)
 }
 
 /** resources/<name> next to the app (packaged: copied via extraResources), or null if it isn't there. */
@@ -232,6 +241,7 @@ app.whenReady().then(async () => {
   denyPermissions(amazonSession())
   // No menu in the installed app: no reload / DevTools shortcuts.
   if (app.isPackaged) Menu.setApplicationMenu(null)
+  serveRenderer(join(__dirname, '../renderer'))
   db.openDb()
   // Once, before the first check: rewrite old plain-text cookies so they're stored encrypted.
   await reencryptCookies(

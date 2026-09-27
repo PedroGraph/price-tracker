@@ -1,5 +1,6 @@
 import { app, shell, type IpcMainInvokeEvent, type Session, type WebContents } from 'electron'
 import { isAllowedExternal, isAmazonUrl } from '@shared/urls'
+import { APP_ORIGIN } from './appProtocol'
 
 /** No page (ours or Amazon's) gets camera, microphone, location, notifications, clipboard… */
 export function denyPermissions(ses: Session): void {
@@ -46,7 +47,7 @@ export function keepOnAmazon(contents: WebContents): void {
 export function isTrustedSender(event: IpcMainInvokeEvent): boolean {
   const url = event.senderFrame?.url ?? ''
   const dev = process.env.ELECTRON_RENDERER_URL
-  return app.isPackaged || !dev ? url.startsWith('file://') && url.includes('/renderer/index.html') : url.startsWith(dev)
+  return app.isPackaged || !dev ? url.startsWith(`${APP_ORIGIN}/`) : url.startsWith(dev)
 }
 
 /**

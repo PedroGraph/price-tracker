@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, session, Tray, type IpcMainInvokeEvent } from 'electron'
 import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -9,7 +9,8 @@ import * as db from './db'
 import { maybeSendDigest } from './digest'
 import { cachedRate, currentRate, refreshRate } from './exchange'
 import { flushQueuedAlerts, sendTestEmail } from './notify'
-import { clearAmazonSession, flushAmazonSession, openAmazonWindow } from './scraper/amazon'
+import { amazonSession, clearAmazonSession, flushAmazonSession, openAmazonWindow } from './scraper/amazon'
+import { denyPermissions, installGlobalGuards, isTrustedSender, openExternal, reencryptCookies } from './security'
 import { getSettings, saveSettings, setResendKey, setSecret } from './settings'
 import { botName, detectChat, sendTelegramTest } from './notify/telegram'
 import { events, runCheck, schedule, status } from './tracker'
@@ -19,9 +20,11 @@ let win: BrowserWindow | null = null
 let tray: Tray | null = null
 let quitting = false
 
-// Data lives in %APPDATA%/amazon-price-tracker no matter what the app is called,
-// so renaming the product never moves (or loses) the database and the Amazon session.
-app.setPath('userData', join(app.getPath('appData'), 'amazon-price-tracker'))
+// Data lives in %APPDATA%/amazon-price-tracker no matter what the app is called, so renaming
+// the product never moves (or loses) the database and the Amazon session. Development runs
+// use their own folder: the installed app encrypts its cookies and a dev build can't read them.
+app.setPath('userData', join(app.getPath('appData'), app.isPackaged ? 'amazon-price-tracker' : 'amazon-price-tracker-dev'))
+installGlobalGuards()
 
 // `--quit` with no running instance to tell has nothing to do.
 if (!app.requestSingleInstanceLock() || process.argv.includes('--quit')) app.quit()
@@ -54,7 +57,8 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       sandbox: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      devTools: !app.isPackaged
     }
   })
   if (!process.argv.includes('--hidden')) win.once('ready-to-show', () => win?.show())
@@ -68,9 +72,9 @@ function createWindow(): void {
   })
   win.on('closed', () => (win = null))
 
-  // External links open in the default browser; the UI itself never navigates away.
+  // Links to known sites (Amazon, GitHub…) open in the browser; the UI itself never navigates away.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://')) void shell.openExternal(url)
+    openExternal(url)
     return { action: 'deny' }
   })
   win.webContents.on('will-navigate', (e) => e.preventDefault())
@@ -137,10 +141,18 @@ async function resolveAsin(input: string): Promise<string | null> {
   return parseAsin(res.url)
 }
 
+/** ipcMain.handle, but only for calls coming from the app's own page. */
+function handle(channel: string, fn: (event: IpcMainInvokeEvent, ...args: any[]) => unknown): void {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!isTrustedSender(event)) throw new Error('Blocked IPC call from an untrusted page.')
+    return fn(event, ...args)
+  })
+}
+
 function registerIpc(): void {
-  ipcMain.handle('products:list', () => db.listProducts())
-  ipcMain.handle('products:stats', () => db.getStats())
-  ipcMain.handle('products:add', async (_e, input: string) => {
+  handle('products:list', () => db.listProducts())
+  handle('products:stats', () => db.getStats())
+  handle('products:add', async (_e, input: string) => {
     const asin = await resolveAsin(input)
     if (!asin) throw new Error("That doesn't look like an Amazon product link or ASIN.")
     db.addManualProduct(asin)
@@ -149,7 +161,7 @@ function registerIpc(): void {
     return asin
   })
   // Asks where to save, then writes the price history as CSV. Resolves to the path, or null if cancelled.
-  ipcMain.handle('products:export', async (_e, asin?: string) => {
+  handle('products:export', async (_e, asin?: string) => {
     const name = asin ? `price-history-${asin}` : 'price-history'
     const { canceled, filePath } = await dialog.showSaveDialog(win!, {
       title: 'Export price history',
@@ -162,52 +174,52 @@ function registerIpc(): void {
     await writeFile(filePath, '\ufeff' + toCsv(db.exportRows(asin), columns), 'utf8')
     return filePath
   })
-  ipcMain.handle('products:remove', (_e, asin: string) => {
+  handle('products:remove', (_e, asin: string) => {
     db.deactivateProduct(asin)
     events.emit('status', { ...status })
   })
-  ipcMain.handle('products:history', (_e, asin: string) => db.getHistory(asin))
-  ipcMain.handle('products:events', (_e, asin: string) => db.getEvents(asin))
-  ipcMain.handle('products:options', (_e, asin: string, opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null }) =>
+  handle('products:history', (_e, asin: string) => db.getHistory(asin))
+  handle('products:events', (_e, asin: string) => db.getEvents(asin))
+  handle('products:options', (_e, asin: string, opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null }) =>
     db.setProductOptions(asin, opts)
   )
-  ipcMain.handle('settings:get', () => getSettings())
-  ipcMain.handle('settings:save', (_e, patch: Partial<Settings>) => {
+  handle('settings:get', () => getSettings())
+  handle('settings:save', (_e, patch: Partial<Settings>) => {
     const saved = saveSettings(patch)
     schedule()
     return saved
   })
-  ipcMain.handle('settings:resendKey', (_e, key: string | null) => setResendKey(key))
-  ipcMain.handle('email:test', () => sendTestEmail())
+  handle('settings:resendKey', (_e, key: string | null) => setResendKey(key))
+  handle('email:test', () => sendTestEmail())
   // The token is checked with Telegram before it's stored, and only the bot name goes back to the UI.
-  ipcMain.handle('telegram:token', async (_e, token: string | null) => {
+  handle('telegram:token', async (_e, token: string | null) => {
     if (!token) return setSecret('telegramToken', null)
     const name = await botName(token.trim())
     setSecret('telegramToken', token)
     return name
   })
-  ipcMain.handle('telegram:detect', async () => {
+  handle('telegram:detect', async () => {
     const chat = await detectChat()
     saveSettings({ telegramChatId: chat.id, telegramEnabled: true })
     return chat.label
   })
-  ipcMain.handle('telegram:test', () => sendTelegramTest())
-  ipcMain.handle('status:get', () => ({ ...status, exchangeRate: cachedRate() }))
-  ipcMain.handle('rate:refresh', async () => {
+  handle('telegram:test', () => sendTelegramTest())
+  handle('status:get', () => ({ ...status, exchangeRate: cachedRate() }))
+  handle('rate:refresh', async () => {
     status.exchangeRate = (await refreshRate(true)) ?? cachedRate()
     return status.exchangeRate
   })
-  ipcMain.handle('amazon:login', async () => {
+  handle('amazon:login', async () => {
     await openAmazonWindow(win ?? undefined)
     void runCheck()
   })
-  ipcMain.handle('amazon:logout', async () => {
+  handle('amazon:logout', async () => {
     await clearAmazonSession()
     status.session = 'logged_out'
   })
-  ipcMain.handle('tracker:run', () => runCheck())
-  ipcMain.handle('update:check', () => checkForUpdates())
-  ipcMain.handle('update:install', () => {
+  handle('tracker:run', () => runCheck())
+  handle('update:check', () => checkForUpdates())
+  handle('update:install', () => {
     quitting = true
     installUpdate()
   })
@@ -216,7 +228,17 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(async () => {
+  denyPermissions(session.defaultSession)
+  denyPermissions(amazonSession())
+  // No menu in the installed app: no reload / DevTools shortcuts.
+  if (app.isPackaged) Menu.setApplicationMenu(null)
   db.openDb()
+  // Once, before the first check: rewrite old plain-text cookies so they're stored encrypted.
+  await reencryptCookies(
+    amazonSession(),
+    () => db.getSetting<boolean>('cookiesReencrypted', false),
+    () => db.setSetting('cookiesReencrypted', true)
+  ).catch(() => undefined)
   registerIpc()
   createWindow()
   createTray()

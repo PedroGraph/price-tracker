@@ -85,12 +85,15 @@ Prices are stored in USD. If your Amazon account shows prices in COP, they're co
 
 ## Security and privacy
 
-- **Resend API key:** encrypted with your Windows user account using Electron `safeStorage` (DPAPI). It's never written in plain text and never sent to the UI.
-- **Amazon password:** never handled by the app. You type it straight into Amazon's page.
-- **Amazon session:** stored in an isolated Electron partition (`persist:amazon`) inside your user profile.
-- **The UI:** runs with `contextIsolation`, `sandbox` and no Node access, behind a strict Content Security Policy. It can only call the functions listed in `src/preload/index.ts`.
-- **What's on disk:** all data (`tracker.db`) stays in `%APPDATA%\amazon-price-tracker`. Nothing is sent anywhere except to Amazon, Resend and the exchange-rate API.
-- `.gitignore` excludes databases and `.env` files. **Never commit your API key.**
+- **Amazon session:** the sign-in cookies are stored **encrypted** with your Windows account (Chromium cookie encryption, DPAPI) in an isolated session (`persist:amazon`). The file is locked while the app runs. The app never sees or stores your Amazon password: you type it on Amazon's page.
+- **Resend key and Telegram token:** encrypted with your Windows account (`safeStorage`, DPAPI), never written in plain text and never sent to the UI.
+- **Hardened executable (Electron fuses):** the installed `.exe` can't be run as a plain Node.js runtime (`ELECTRON_RUN_AS_NODE`), doesn't accept `NODE_OPTIONS` or `--inspect` debugging, only loads its own `app.asar` and refuses to start if it was tampered with.
+- **Windows and pages:** the UI runs with `contextIsolation`, `sandbox`, no Node access and a strict Content Security Policy, and can only call the functions in `src/preload/index.ts`; IPC calls from any other page are rejected. Amazon windows can't leave amazon.com, no page gets camera/mic/location/notification permissions, pop-ups and `<webview>` are blocked, links open in your browser only for known sites (Amazon, GitHub, Resend, Telegram), and DevTools and the menu are off in the installed app.
+- **Updates** are downloaded over HTTPS from this repo's GitHub Releases and checked against the SHA-512 in `latest.yml`. Protect the GitHub account with 2FA: whoever can publish a release can ship an update.
+- **What's on disk:** everything stays in `%APPDATA%mazon-price-tracker` (development runs use `amazon-price-tracker-dev`). Nothing is sent anywhere except to Amazon, Resend, Telegram, the exchange-rate API and GitHub (update checks).
+- **The repo** holds no personal data: databases, `.env` files, builds and previews are ignored, and the test pages in `tests/fixtures` are trimmed and anonymized.
+
+**Limits:** DPAPI protects your data from other Windows users and from copies of the files, not from malware already running as *your* user, which can ask Windows to decrypt like the app does. Keep Windows and your antivirus up to date. And don't install a version older than 1.1.4 over a newer one: older versions can't read the encrypted cookies and you'd have to sign in to Amazon again.
 
 ## Disclaimer
 

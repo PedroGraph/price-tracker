@@ -1,4 +1,5 @@
-import { BrowserWindow, session } from 'electron'
+import { app, BrowserWindow, session } from 'electron'
+import { keepOnAmazon } from '../security'
 import { parsePrice } from '@shared/pricing'
 import type { SessionState } from '@shared/types'
 import { extractCart, extractOffers, extractProduct, isUnavailable, type PageFlags } from './extractors'
@@ -12,7 +13,7 @@ export class SessionError extends Error {
   }
 }
 
-function amazonSession(): Electron.Session {
+export function amazonSession(): Electron.Session {
   const s = session.fromPartition(PARTITION)
   // Present as regular Chrome instead of "Electron/x.y".
   s.setUserAgent(s.getUserAgent().replace(/\s(Electron|amazon-price-tracker)\/\S+/g, ''))
@@ -23,7 +24,8 @@ const webPreferences = (): Electron.WebPreferences => ({
   session: amazonSession(),
   contextIsolation: true,
   sandbox: true,
-  nodeIntegration: false
+  nodeIntegration: false,
+  devTools: !app.isPackaged
 })
 
 /** Opens a visible Amazon window. The user signs in there; cookies persist on disk. */
@@ -31,6 +33,7 @@ export function openAmazonWindow(parent?: BrowserWindow): Promise<void> {
   return new Promise((resolve) => {
     const win = new BrowserWindow({ width: 1100, height: 850, parent, title: 'Amazon — sign in', webPreferences: webPreferences() })
     win.setMenuBarVisibility(false)
+    keepOnAmazon(win.webContents)
     win.loadURL(`${BASE}/gp/cart/view.html`)
     // Write the new sign-in cookies to disk right away so they survive a crash or forced exit.
     win.on('closed', () => {
@@ -66,6 +69,10 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 /** A hidden window reused for one tracking run. */
 export class Scraper {
   private win = new BrowserWindow({ show: false, webPreferences: webPreferences() })
+
+  constructor() {
+    keepOnAmazon(this.win.webContents)
+  }
 
   private async run<T extends PageFlags>(url: string, fn: () => T, checkLogin = true): Promise<T> {
     await this.win.loadURL(url)

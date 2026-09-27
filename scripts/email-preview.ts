@@ -1,5 +1,5 @@
 /**
- * Writes out/email-preview-<lang>.html with sample alerts, to check the email design
+ * Writes preview/email-<lang>.html with sample alerts, to check the email design
  * without sending anything:  npm run email:preview
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -19,8 +19,8 @@ const samples: EmailAlert[] = [
   { ...airpods, type: 'out_of_stock', seller: null, oldPrice: null, newPrice: null, detail: null }
 ]
 
-mkdirSync('out', { recursive: true })
+mkdirSync('preview', { recursive: true })
 for (const lang of ['es', 'en'] as const) {
-  writeFileSync(`out/email-preview-${lang}.html`, alertEmail(samples, 3257.15, lang))
-  console.log(`out/email-preview-${lang}.html`)
+  writeFileSync(`preview/email-${lang}.html`, alertEmail(samples, 3257.15, lang))
+  console.log(`preview/email-${lang}.html`)
 }

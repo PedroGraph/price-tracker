@@ -37,7 +37,7 @@ export async function detectChat(): Promise<{ id: string; label: string }> {
   )
   const chat = updates
     .map((u) => u.message?.chat)
-    .filter((c): c is NonNullable<typeof c> => !!c)
+    .filter((c): c is NonNullable<typeof c> => !!c && c.type === 'private')
     .at(-1)
   if (!chat) throw new Error('No messages yet. Open your bot in Telegram, send /start, then try again.')
   return { id: String(chat.id), label: chat.title ?? chat.username ?? chat.first_name ?? String(chat.id) }

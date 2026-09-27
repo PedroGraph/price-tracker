@@ -12,7 +12,7 @@ const { app, BrowserWindow, session } = require('electron')
 const { writeFileSync, mkdirSync } = require('node:fs')
 const { join } = require('node:path')
 
-app.setPath('userData', join(app.getPath('appData'), 'amazon-price-tracker'))
+app.setPath('userData', join(app.getPath('appData'), 'amazon-price-tracker-dev'))
 const OUT = join(__dirname, '..', 'tests', 'fixtures')
 const [asin, offersAsin = asin] = process.argv.slice(2).filter((a) => /^[A-Z0-9]{10}$/.test(a))
 

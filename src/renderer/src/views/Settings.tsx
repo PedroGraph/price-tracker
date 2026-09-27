@@ -383,6 +383,24 @@ export function SettingsView({
         <p className="hint">Amazon doesn't publish the rate it uses, so COP amounts are a close estimate.</p>
       </section>
 
+      <section className="card row between">
+        <div>
+          <h3>Your data</h3>
+          <p className="sub">Every price reading of every product, as a CSV file for Excel or Google Sheets.</p>
+        </div>
+        <button
+          className="btn"
+          onClick={() =>
+            void window.api.exportCsv().then(
+              (path) => path && notify(`Saved ${path}`),
+              (e) => notify(cleanError(e), true)
+            )
+          }
+        >
+          Export CSV
+        </button>
+      </section>
+
       <section className="card">
         <h3>App</h3>
         <div className="toggle-row" style={{ marginTop: 8 }}>

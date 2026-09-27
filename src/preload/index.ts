@@ -7,6 +7,8 @@ const api = {
   getStats: (): Promise<DashboardStats> => ipcRenderer.invoke('products:stats'),
   addProduct: (urlOrAsin: string): Promise<string> => ipcRenderer.invoke('products:add', urlOrAsin),
   removeProduct: (asin: string): Promise<void> => ipcRenderer.invoke('products:remove', asin),
+  /** Opens a save dialog; resolves to the saved path or null when cancelled. */
+  exportCsv: (asin?: string): Promise<string | null> => ipcRenderer.invoke('products:export', asin),
   getHistory: (asin: string): Promise<PriceReading[]> => ipcRenderer.invoke('products:history', asin),
   getEvents: (asin: string): Promise<TrackerEvent[]> => ipcRenderer.invoke('products:events', asin),
   setProductOptions: (

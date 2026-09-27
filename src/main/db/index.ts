@@ -250,6 +250,18 @@ export function firstPriceSince(asin: string, since: string): number | null {
   return r?.price ?? null
 }
 
+/** Every reading joined with its product, oldest first; optionally for one product. */
+export function exportRows(asin?: string): Record<string, string | number | null>[] {
+  return db
+    .prepare(
+      `SELECT h.asin, p.title, h.checked_at, h.source, h.seller, h.condition, h.price AS price_usd,
+              h.shipping AS shipping_usd, h.available
+       FROM price_history h JOIN products p ON p.asin = h.asin
+       ${asin ? 'WHERE h.asin = ?' : ''} ORDER BY h.id`
+    )
+    .all(...(asin ? [asin] : [])) as Record<string, string | number | null>[]
+}
+
 export function countAlertsSince(since: string): number {
   return (db.prepare(`SELECT COUNT(*) AS n FROM events WHERE type IN ${ALERT_TYPES} AND created_at >= ?`).get(since) as { n: number }).n
 }

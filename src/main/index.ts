@@ -1,5 +1,7 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
+import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { toCsv } from '@shared/csv'
 import { parseAsin } from '@shared/pricing'
 import type { Settings, Threshold } from '@shared/types'
 import * as db from './db'
@@ -124,6 +126,20 @@ function registerIpc(): void {
     events.emit('status', { ...status })
     void runCheck()
     return asin
+  })
+  // Asks where to save, then writes the price history as CSV. Resolves to the path, or null if cancelled.
+  ipcMain.handle('products:export', async (_e, asin?: string) => {
+    const name = asin ? `price-history-${asin}` : 'price-history'
+    const { canceled, filePath } = await dialog.showSaveDialog(win!, {
+      title: 'Export price history',
+      defaultPath: join(app.getPath('downloads'), `${name}-${new Date().toISOString().slice(0, 10)}.csv`),
+      filters: [{ name: 'CSV', extensions: ['csv'] }]
+    })
+    if (canceled || !filePath) return null
+    const columns = ['asin', 'title', 'checked_at', 'source', 'seller', 'condition', 'price_usd', 'shipping_usd', 'available']
+    // BOM so Excel opens accents (e.g. Spanish titles) correctly.
+    await writeFile(filePath, '\ufeff' + toCsv(db.exportRows(asin), columns), 'utf8')
+    return filePath
   })
   ipcMain.handle('products:remove', (_e, asin: string) => {
     db.deactivateProduct(asin)

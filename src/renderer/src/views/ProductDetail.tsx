@@ -194,6 +194,14 @@ export function ProductDetail({
             <h3>
               Price history{days ? ` · last ${days} day${days === 1 ? '' : 's'}` : ''}
             </h3>
+            <button
+              className="btn"
+              onClick={() =>
+                void window.api.exportCsv(product.asin).then((path) => path && notify(`Saved ${path}`))
+              }
+            >
+              Export CSV
+            </button>
             <button className="btn" onClick={() => setAsTable(!asTable)}>
               {asTable ? 'View as chart' : 'View as table'}
             </button>

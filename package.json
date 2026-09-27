@@ -1,0 +1,35 @@
+{
+  "name": "amazon-price-tracker",
+  "version": "1.0.0",
+  "description": "Desktop app that tracks the prices of the products in your Amazon.com cart and emails you when they change.",
+  "main": "./out/main/index.js",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "fixtures": "electron scripts/capture-fixtures.cjs",
+    "dist": "electron-vite build && electron-builder --win"
+  },
+  "devDependencies": {
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "happy-dom": "^20.14.5",
+    "lucide-react": "^1.48.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "recharts": "^3.10.1",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.7"
+  }
+}

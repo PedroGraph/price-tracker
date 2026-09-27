@@ -1,0 +1,13 @@
+appId: com.local.amazonpricetracker
+productName: Amazon Price Tracker
+directories:
+  buildResources: resources
+  output: release
+files:
+  - out/**
+  - package.json
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

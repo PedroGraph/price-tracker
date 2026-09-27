@@ -1,0 +1,91 @@
+import { ChevronDown, ChevronUp, Minus, Package } from 'lucide-react'
+import { useMoney } from './money'
+
+export function timeAgo(iso: string | null): string {
+  if (!iso) return 'never'
+  const s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000)
+  if (s < 60) return 'just now'
+  if (s < 3600) return `${Math.round(s / 60)} min ago`
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`
+  const d = Math.round(s / 86400)
+  return `${d} day${d === 1 ? '' : 's'} ago`
+}
+
+export function timeUntil(iso: string | null): string {
+  if (!iso) return '—'
+  const m = Math.max(0, Math.round((Date.parse(iso) - Date.now()) / 60000))
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`
+}
+
+export function Thumb({ src, large }: { src: string | null; large?: boolean }) {
+  return <div className={large ? 'thumb lg' : 'thumb'}>{src ? <img src={src} alt="" /> : <Package size={22} strokeWidth={1.6} />}</div>
+}
+
+/** "-$21.00 (-6.0%)" pill; grey "No change" when equal. */
+export function ChangePill({ from, to, suffix }: { from: number | null; to: number | null; suffix?: string }) {
+  const { fmtDelta } = useMoney()
+  if (from === null || to === null) return null
+  const diff = Math.round((to - from) * 100) / 100
+  if (diff === 0) {
+    return (
+      <span className="pill flat">
+        <Minus size={12} /> No change
+      </span>
+    )
+  }
+  const pct = (diff / from) * 100
+  return (
+    <span className={`pill ${diff < 0 ? 'down' : 'up'}`}>
+      {diff < 0 ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+      {fmtDelta(diff)} ({pct > 0 ? '+' : ''}
+      {pct.toFixed(1)}%){suffix}
+    </span>
+  )
+}
+
+export function Sparkline({ values }: { values: number[] }) {
+  const w = 124
+  const h = 40
+  if (values.length < 2) return <svg width={w} height={h} />
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const pts = values.map((v, i) => [(i / (values.length - 1)) * (w - 6) + 3, max === min ? h / 2 : h - 4 - ((v - min) / span) * (h - 8)])
+  const trend = values.at(-1)! - values[0]
+  const color = trend < 0 ? 'var(--teal)' : trend > 0 ? 'var(--amber)' : 'var(--faint)'
+  const [lx, ly] = pts.at(-1)!
+  return (
+    <svg width={w} height={h} aria-hidden>
+      <polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+      <circle cx={lx} cy={ly} r={3} fill={color} />
+    </svg>
+  )
+}
+
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange
+}: {
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+}) {
+  return (
+    <div className="segmented" role="radiogroup">
+      {options.map((o) => (
+        <button key={o.value} role="radio" aria-checked={o.value === value} className={o.value === value ? 'on' : ''} onClick={() => onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button className={on ? 'toggle on' : 'toggle'} role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}>
+      <span />
+    </button>
+  )
+}

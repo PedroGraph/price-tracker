@@ -1,0 +1,29 @@
+import { contextBridge, ipcRenderer } from 'electron'
+import type { DashboardStats, ExchangeRate, PriceReading, Product, Settings, Status, Threshold, TrackerEvent } from '@shared/types'
+
+/** The only surface the UI can reach. Each method maps to one IPC channel. */
+const api = {
+  listProducts: (): Promise<Product[]> => ipcRenderer.invoke('products:list'),
+  getStats: (): Promise<DashboardStats> => ipcRenderer.invoke('products:stats'),
+  getHistory: (asin: string): Promise<PriceReading[]> => ipcRenderer.invoke('products:history', asin),
+  getEvents: (asin: string): Promise<TrackerEvent[]> => ipcRenderer.invoke('products:events', asin),
+  setProductOptions: (asin: string, opts: { trackOffers?: boolean; threshold?: Threshold | null }): Promise<void> =>
+    ipcRenderer.invoke('products:options', asin, opts),
+  getSettings: (): Promise<Settings> => ipcRenderer.invoke('settings:get'),
+  saveSettings: (patch: Partial<Settings>): Promise<Settings> => ipcRenderer.invoke('settings:save', patch),
+  setResendKey: (key: string | null): Promise<void> => ipcRenderer.invoke('settings:resendKey', key),
+  sendTestEmail: (): Promise<string> => ipcRenderer.invoke('email:test'),
+  getStatus: (): Promise<Status> => ipcRenderer.invoke('status:get'),
+  refreshRate: (): Promise<ExchangeRate | null> => ipcRenderer.invoke('rate:refresh'),
+  openAmazon: (): Promise<void> => ipcRenderer.invoke('amazon:login'),
+  signOut: (): Promise<void> => ipcRenderer.invoke('amazon:logout'),
+  runNow: (): Promise<void> => ipcRenderer.invoke('tracker:run'),
+  onStatus: (cb: (s: Status) => void): (() => void) => {
+    const listener = (_e: unknown, s: Status): void => cb(s)
+    ipcRenderer.on('status', listener)
+    return () => ipcRenderer.removeListener('status', listener)
+  }
+}
+
+export type Api = typeof api
+contextBridge.exposeInMainWorld('api', api)

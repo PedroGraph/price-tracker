@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import { join } from 'node:path'
+import { parseAsin } from '@shared/pricing'
 import type { Settings, Threshold } from '@shared/types'
 import * as db from './db'
 import { cachedRate, refreshRate } from './exchange'
@@ -96,9 +97,36 @@ function createTray(): void {
   tray.on('click', showWindow)
 }
 
+/** Accepts a bare ASIN, a product URL, or a short amzn.to / a.co link (followed to the product page). */
+async function resolveAsin(input: string): Promise<string | null> {
+  const direct = parseAsin(input)
+  if (direct) return direct
+  let url: URL
+  try {
+    url = new URL(input.trim())
+  } catch {
+    return null
+  }
+  if (!/^(amzn\.to|a\.co|amzn\.com|www\.amazon\.com|amazon\.com)$/i.test(url.hostname)) return null
+  const res = await fetch(url, { method: 'GET', redirect: 'follow' })
+  return parseAsin(res.url)
+}
+
 function registerIpc(): void {
   ipcMain.handle('products:list', () => db.listProducts())
   ipcMain.handle('products:stats', () => db.getStats())
+  ipcMain.handle('products:add', async (_e, input: string) => {
+    const asin = await resolveAsin(input)
+    if (!asin) throw new Error("That doesn't look like an Amazon product link or ASIN.")
+    db.addManualProduct(asin)
+    events.emit('status', { ...status })
+    void runCheck()
+    return asin
+  })
+  ipcMain.handle('products:remove', (_e, asin: string) => {
+    db.deactivateProduct(asin)
+    events.emit('status', { ...status })
+  })
   ipcMain.handle('products:history', (_e, asin: string) => db.getHistory(asin))
   ipcMain.handle('products:events', (_e, asin: string) => db.getEvents(asin))
   ipcMain.handle('products:options', (_e, asin: string, opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null }) =>

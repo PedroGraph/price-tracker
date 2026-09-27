@@ -29,12 +29,14 @@ export function ProductDetail({
   product,
   globalThreshold,
   onChanged,
-  notify
+  notify,
+  onRemoved
 }: {
   product: Product | undefined
   globalThreshold: Threshold
   onChanged: () => void
   notify: Notify
+  onRemoved: () => void
 }) {
   const { rate, fmt, toDisplay, fromDisplay, currency } = useMoney()
   const [history, setHistory] = useState<PriceReading[]>([])
@@ -125,9 +127,24 @@ export function ProductDetail({
           <Thumb src={product.image} large />
           <div>
             <h2>{product.title}</h2>
-            <a href={product.url} target="_blank" rel="noreferrer">
-              Open on Amazon <ArrowUpRight size={14} />
-            </a>
+            <div className="row">
+              <a href={product.url} target="_blank" rel="noreferrer">
+                Open on Amazon <ArrowUpRight size={14} />
+              </a>
+              {product.source === 'manual' && (
+                <button
+                  className="btn link"
+                  onClick={() =>
+                    void window.api.removeProduct(product.asin).then(() => {
+                      notify('Stopped tracking. The price history is kept.')
+                      onRemoved()
+                    })
+                  }
+                >
+                  Stop tracking
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

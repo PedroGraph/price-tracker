@@ -72,6 +72,7 @@ app.whenReady().then(async () => {
       win,
       `https://www.amazon.com/dp/${asin}?th=1&psc=1`,
       [
+        '#productTitle',
         '#landingImage',
         '#corePrice_feature_div',
         '#corePriceDisplay_desktop_feature_div',

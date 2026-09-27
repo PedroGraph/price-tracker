@@ -177,6 +177,9 @@ main { flex: 1; padding: 22px 32px 40px; }
 .empty { text-align: center; padding: 70px 20px; }
 .empty h2 { margin: 12px 0 6px; font-size: 20px; }
 
+.add-form { display: flex; gap: 10px; align-items: center; margin: 0 0 18px; padding: 14px 16px; }
+.empty .add-form { max-width: 640px; margin: 0 auto 24px; text-align: left; }
+
 /* ---------- detail ---------- */
 .detail { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .col { display: flex; flex-direction: column; gap: 20px; }

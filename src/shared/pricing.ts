@@ -87,6 +87,14 @@ export function extraEvents(input: {
   return events
 }
 
+/** Pulls the ASIN out of an Amazon product URL (or accepts a bare ASIN). */
+export function parseAsin(input: string): string | null {
+  const text = input.trim()
+  if (/^[A-Z0-9]{10}$/i.test(text)) return text.toUpperCase()
+  const m = text.match(/\/(?:dp|gp\/product|gp\/aw\/d|product-reviews|exec\/obidos\/asin)\/([A-Z0-9]{10})(?:[/?#]|$)/i)
+  return m ? m[1].toUpperCase() : null
+}
+
 /** Parses Amazon price text such as "$1,299.99", "COP 450,000.00" or "US$19.99". */
 export function parsePrice(text: string | null | undefined, copPerUsd: number | null): number | null {
   if (!text) return null

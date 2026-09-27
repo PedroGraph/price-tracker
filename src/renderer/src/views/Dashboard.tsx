@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { ChevronRight, Search, ShoppingCart } from 'lucide-react'
+import { ChevronRight, Plus, Search, ShoppingCart } from 'lucide-react'
+import type { Notify } from '../App'
 import type { DashboardStats, Product, Status } from '@shared/types'
 import { useMoney } from '../money'
 import { ChangePill, Sparkline, Thumb, timeAgo } from '../ui'
@@ -20,16 +21,53 @@ export function Dashboard({
   products,
   stats,
   status,
-  onOpen
+  onOpen,
+  notify
 }: {
   products: Product[]
   stats: DashboardStats | null
   status: Status | null
   onOpen: (asin: string) => void
+  notify: Notify
 }) {
   const { fmt } = useMoney()
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [link, setLink] = useState('')
+
+  const add = async (): Promise<void> => {
+    try {
+      const asin = await window.api.addProduct(link)
+      setLink('')
+      setAdding(false)
+      notify(`Tracking ${asin}. Its price appears after this check.`)
+    } catch (e) {
+      notify(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e), true)
+    }
+  }
+
+  const addForm = adding && (
+    <div className="card add-form">
+      <input
+        type="text"
+        autoFocus
+        placeholder="Paste an Amazon product link or ASIN"
+        value={link}
+        onChange={(e) => setLink(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') void add()
+          if (e.key === 'Escape') setAdding(false)
+        }}
+      />
+      <button className="btn primary" onClick={() => void add()} disabled={!link.trim()}>
+        Track
+      </button>
+      <button className="btn link" onClick={() => setAdding(false)}>
+        Cancel
+      </button>
+    </div>
+  )
   const active = useMemo(() => products.filter((p) => p.active), [products])
 
   const visible = active.filter(
@@ -61,6 +99,7 @@ export function Dashboard({
 
       {active.length === 0 ? (
         <div className="empty">
+          {addForm}
           <ShoppingCart size={34} className="faint" />
           <h2>No products yet</h2>
           <p className="muted">
@@ -68,11 +107,16 @@ export function Dashboard({
               ? 'Your Amazon cart is empty. Add something to your cart and check again.'
               : 'Sign in to Amazon and the app will start tracking everything in your cart.'}
           </p>
-          {status?.session !== 'logged_in' && (
-            <button className="btn primary" onClick={() => void window.api.openAmazon()}>
-              Open Amazon
+          <div className="row" style={{ justifyContent: 'center' }}>
+            {status?.session !== 'logged_in' && (
+              <button className="btn primary" onClick={() => void window.api.openAmazon()}>
+                Open Amazon
+              </button>
+            )}
+            <button className="btn" onClick={() => setAdding(true)}>
+              <Plus size={15} /> Add by link
             </button>
-          )}
+          </div>
         </div>
       ) : (
         <>
@@ -83,12 +127,16 @@ export function Dashboard({
               </button>
             ))}
             <div className="spacer" />
+            <button className="btn" onClick={() => setAdding(!adding)}>
+              <Plus size={15} /> Add product
+            </button>
             <label className="search">
               <Search size={16} />
               <input type="text" placeholder="Search products…" value={query} onChange={(e) => setQuery(e.target.value)} />
             </label>
           </div>
 
+          {addForm}
           <section className="grid">
             {visible.map((p) => (
               <ProductCard key={p.asin} product={p} onOpen={() => onOpen(p.asin)} />
@@ -141,6 +189,7 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
             <span className="badge good">Lowest ever</span>
           )}
           {p.sellerCount > 1 && <span className="badge">{p.sellerCount} sellers</span>}
+          {p.source === 'manual' && <span className="badge">Not in cart</span>}
         </div>
       </div>
       <div className="priceline">

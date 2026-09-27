@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateReading, extraEvents, parsePrice, thresholdInUsd } from '../src/shared/pricing'
+import { evaluateReading, extraEvents, parseAsin, parsePrice, thresholdInUsd } from '../src/shared/pricing'
 
 const pct5 = { unit: 'percent' as const, value: 5 }
 const base = { basePrice: 100, wasAvailable: true, available: true, threshold: pct5, copPerUsd: 4000 }
@@ -78,5 +78,21 @@ describe('extraEvents', () => {
 
   it('ignores unavailable readings', () => {
     expect(extraEvents({ ...none, price: null, targetPrice: 200 })).toEqual([])
+  })
+})
+
+describe('parseAsin', () => {
+  it('reads ASINs from the usual Amazon URL shapes', () => {
+    expect(parseAsin('https://www.amazon.com/Apple-MacBook/dp/B0CTR557NJ/ref=sr_1_1?keywords=mac')).toBe('B0CTR557NJ')
+    expect(parseAsin('https://www.amazon.com/dp/B0CTR557NJ')).toBe('B0CTR557NJ')
+    expect(parseAsin('https://www.amazon.com/gp/product/B0D52NZN6Q?psc=1')).toBe('B0D52NZN6Q')
+    expect(parseAsin('https://www.amazon.com/-/es/gp/aw/d/B0D52NZN6Q')).toBe('B0D52NZN6Q')
+    expect(parseAsin(' b0ctr557nj ')).toBe('B0CTR557NJ')
+  })
+
+  it('rejects things that are not product links', () => {
+    expect(parseAsin('https://www.amazon.com/s?k=laptop')).toBeNull()
+    expect(parseAsin('https://amzn.to/3xYzAbC')).toBeNull()
+    expect(parseAsin('hello')).toBeNull()
   })
 })

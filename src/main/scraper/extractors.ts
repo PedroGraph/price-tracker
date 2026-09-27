@@ -18,6 +18,7 @@ export interface RawCartItem {
 }
 
 export interface RawProduct extends PageFlags {
+  title: string | null
   image: string | null
   priceText: string | null
   availabilityText: string | null
@@ -95,6 +96,7 @@ export function extractProduct(): RawProduct {
   const delivery = document.querySelector('#mir-layout-DELIVERY_BLOCK [data-csa-c-delivery-price]')
   const landing = document.querySelector('#landingImage, #imgBlkFront') as HTMLImageElement | null
   return {
+    title: text(document.querySelector('#productTitle')),
     image: landing?.getAttribute('data-old-hires') || landing?.src || null,
     captcha: !!document.querySelector('form[action*="validateCaptcha"]'),
     loggedOut: !account || /\/ap\/signin/.test(accountHref) || /sign in|identif/i.test(accountText ?? ''),

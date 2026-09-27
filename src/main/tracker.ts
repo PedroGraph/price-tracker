@@ -34,8 +34,14 @@ export function schedule(): void {
   emit()
 }
 
+/** A check asked for while one is running (e.g. a product was just added) runs right after it. */
+let rerunRequested = false
+
 export async function runCheck(): Promise<void> {
-  if (status.running) return
+  if (status.running) {
+    rerunRequested = true
+    return
+  }
   status.running = true
   status.lastError = null
   emit()
@@ -54,6 +60,11 @@ export async function runCheck(): Promise<void> {
   status.running = false
   status.lastRunAt = new Date().toISOString()
   emit()
+
+  if (rerunRequested) {
+    rerunRequested = false
+    await runCheck()
+  }
 }
 
 async function track(): Promise<RunOutcome> {
@@ -73,7 +84,8 @@ async function track(): Promise<RunOutcome> {
     for (const product of db.listProducts(true)) {
       checked++
       await scraper.pause()
-      const { image, readable, ...page } = await scraper.product(product.asin, rate)
+      const { image, title, readable, ...page } = await scraper.product(product.asin, rate)
+      if (title && product.title === product.asin) db.setProductTitle(product.asin, title)
       if (image && (!product.image || /loadIndicators/.test(product.image))) db.setProductImage(product.asin, image)
 
       // No price and no "unavailable" text: the page didn't match our selectors.

@@ -5,6 +5,8 @@ import type { DashboardStats, ExchangeRate, PriceReading, Product, Settings, Sta
 const api = {
   listProducts: (): Promise<Product[]> => ipcRenderer.invoke('products:list'),
   getStats: (): Promise<DashboardStats> => ipcRenderer.invoke('products:stats'),
+  addProduct: (urlOrAsin: string): Promise<string> => ipcRenderer.invoke('products:add', urlOrAsin),
+  removeProduct: (asin: string): Promise<void> => ipcRenderer.invoke('products:remove', asin),
   getHistory: (asin: string): Promise<PriceReading[]> => ipcRenderer.invoke('products:history', asin),
   getEvents: (asin: string): Promise<TrackerEvent[]> => ipcRenderer.invoke('products:events', asin),
   setProductOptions: (

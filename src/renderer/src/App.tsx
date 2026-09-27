@@ -161,6 +161,7 @@ export function App() {
             stats={stats}
             status={status}
             onOpen={(asin) => setView({ name: 'product', asin })}
+            notify={notify}
           />
         )}
         {view.name === 'product' && settings && (
@@ -169,6 +170,10 @@ export function App() {
             globalThreshold={settings.threshold}
             onChanged={reload}
             notify={notify}
+            onRemoved={() => {
+              void reload()
+              setView({ name: 'dashboard' })
+            }}
           />
         )}
         {view.name === 'settings' && settings && (

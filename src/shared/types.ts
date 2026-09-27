@@ -34,6 +34,8 @@ export interface Product {
   baseSince: string | null
   /** A back_in_stock event in the last 24 hours. */
   backInStock: boolean
+  /** 'cart' products follow the Amazon cart; 'manual' ones were added by URL and stay until removed. */
+  source: 'cart' | 'manual'
   /** Alert once when the price drops to this USD amount or below. */
   targetPrice: number | null
   /** Lowest tracked price ever and in the last 30 days. */

@@ -55,7 +55,8 @@ const MIGRATIONS = [
    );
    CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
   `ALTER TABLE price_history ADD COLUMN condition TEXT;`,
-  `ALTER TABLE products ADD COLUMN target_price REAL;`
+  `ALTER TABLE products ADD COLUMN target_price REAL;`,
+  `ALTER TABLE products ADD COLUMN source TEXT NOT NULL DEFAULT 'cart';`
 ]
 
 export function openDb(file = join(app.getPath('userData'), 'tracker.db')): void {
@@ -98,6 +99,7 @@ function toProduct(r: ProductRow): Product {
     baseSince: null,
     backInStock: false,
     targetPrice: (r.target_price as number) ?? null,
+    source: (r.source as Product['source']) ?? 'cart',
     lowestPrice: null,
     lowest30: null
   }
@@ -200,9 +202,10 @@ export function syncCart(items: { asin: string; title: string; url: string; imag
        ON CONFLICT(asin) DO UPDATE SET title = @title, url = @url, image = CASE WHEN @image IS NULL THEN image ELSE @image END, active = 1`
     )
     for (const { asin, title, url, image } of items) upsert.run({ asin, title, url, image, now: now() })
+    // Only cart products leave with the cart; products added by URL stay until removed.
     const asins = items.map((i) => i.asin)
     db.prepare(
-      `UPDATE products SET active = 0 WHERE asin NOT IN (${asins.map(() => '?').join(',') || "''"})`
+      `UPDATE products SET active = 0 WHERE source = 'cart' AND asin NOT IN (${asins.map(() => '?').join(',') || "''"})`
     ).run(...asins)
   })
 }
@@ -215,6 +218,23 @@ export function updateProductState(
     `UPDATE products SET base_price = ?, last_price = ?, last_shipping = ?, last_seller = ?, available = ?, last_checked_at = ?
      WHERE asin = ?`
   ).run(s.basePrice, s.lastPrice, s.lastShipping, s.lastSeller, s.available ? 1 : 0, now(), asin)
+}
+
+/** Adds (or re-activates) a product tracked by URL. The title is filled in on the first check. */
+export function addManualProduct(asin: string): void {
+  db.prepare(
+    `INSERT INTO products (asin, title, url, active, source, added_at) VALUES (?, ?, ?, 1, 'manual', ?)
+     ON CONFLICT(asin) DO UPDATE SET active = 1, source = CASE WHEN active = 1 THEN source ELSE 'manual' END`
+  ).run(asin, asin, `https://www.amazon.com/dp/${asin}`, now())
+}
+
+/** Stops tracking a product; its history is kept. */
+export function deactivateProduct(asin: string): void {
+  db.prepare('UPDATE products SET active = 0 WHERE asin = ?').run(asin)
+}
+
+export function setProductTitle(asin: string, title: string): void {
+  db.prepare('UPDATE products SET title = ? WHERE asin = ?').run(title, asin)
 }
 
 export function setProductImage(asin: string, image: string): void {

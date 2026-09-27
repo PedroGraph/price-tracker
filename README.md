@@ -9,6 +9,9 @@ A Windows desktop app (Electron + React + TypeScript) that watches the prices of
 - Thresholds can be in **%**, **USD** or **COP**, set globally or per product. Prices can be shown in USD or COP.
 - Optional per product: track **other sellers** of the same item on Amazon and follow the cheapest offer.
 - Shipping is shown separately (“+ $X shipping”) and never counts toward the tracked price.
+- **Target price** per product: one alert when the price reaches your number.
+- **All-time low** alerts, plus the lowest price ever and in the last 30 days on each product.
+- **Track products outside your cart** by pasting a product link (including `amzn.to` links) or an ASIN.
 
 ## How alerts work
 

@@ -1,4 +1,4 @@
-# Amazon Price Tracker
+# Price Tracker
 
 A Windows desktop app (Electron + React + TypeScript) that watches the prices of everything in your **Amazon.com cart** and emails you when a price goes up or down, or when a product goes out of stock or comes back.
 

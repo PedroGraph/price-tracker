@@ -54,5 +54,5 @@ export async function sendTelegram(html: string, force = false): Promise<void> {
 export async function sendTelegramTest(): Promise<void> {
   requireToken()
   if (!getSettings().telegramChatId) throw new Error('Detect your chat first.')
-  await sendTelegram(`✅ <b>Amazon Price Tracker</b>\n${tr('Telegram alerts are working.')}`, true)
+  await sendTelegram(`✅ <b>Price Tracker</b>\n${tr('Telegram alerts are working.')}`, true)
 }

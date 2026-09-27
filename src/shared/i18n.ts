@@ -271,7 +271,7 @@ const ES: Record<string, string> = {
   '{n} price alerts from your Amazon cart': '{n} alertas de precio de tu carrito de Amazon',
   'Seller: {seller}': 'Vendedor: {seller}',
   'Email alerts are working. 🎉': 'Las alertas por email funcionan. 🎉',
-  'Amazon Price Tracker test': 'Prueba de Amazon Price Tracker',
+  'Price Tracker test': 'Prueba de Price Tracker',
   'Telegram alerts are working.': 'Las alertas por Telegram funcionan.',
   'Daily summary: {products} products, {alerts} alerts': 'Resumen diario: {products} productos, {alerts} alertas',
   'Weekly summary: {products} products, {alerts} alerts': 'Resumen semanal: {products} productos, {alerts} alertas',
@@ -281,13 +281,13 @@ const ES: Record<string, string> = {
   'no change': 'sin cambios',
   'lowest {price}': 'mínimo {price}',
   'Action needed: sign in to Amazon again': 'Acción necesaria: vuelve a iniciar sesión en Amazon',
-  'Open Amazon Price Tracker and click {button}. Price checks are paused until then.':
-    'Abre Amazon Price Tracker y pulsa {button}. Las revisiones de precio quedan en pausa hasta entonces.',
-  'Amazon Price Tracker can no longer read prices': 'Amazon Price Tracker ya no puede leer los precios',
+  'Open Price Tracker and click {button}. Price checks are paused until then.':
+    'Abre Price Tracker y pulsa {button}. Las revisiones de precio quedan en pausa hasta entonces.',
+  'Price Tracker can no longer read prices': 'Price Tracker ya no puede leer los precios',
   "The last {n} checks could not read Amazon's pages:": 'Las últimas {n} revisiones no pudieron leer las páginas de Amazon:',
   'Amazon probably changed its page layout. The selectors live in {file}. No false price or stock alerts are sent while this lasts.':
     'Seguramente Amazon cambió el diseño de sus páginas. Los selectores están en {file}. Mientras tanto no se envían alertas falsas de precio ni de stock.',
-  'Amazon Price Tracker is reading prices again': 'Amazon Price Tracker vuelve a leer los precios',
+  'Price Tracker is reading prices again': 'Price Tracker vuelve a leer los precios',
   'Price checks are back to normal.': 'Las revisiones de precio volvieron a la normalidad.',
   'Amazon prices could not be read. The page layout may have changed.':
     'No se pudieron leer los precios de Amazon. Puede que el diseño de la página haya cambiado.'

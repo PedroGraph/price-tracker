@@ -162,7 +162,7 @@ export function emailShell(inner: string, lang: Lang): string {
       </td></tr>
       <tr><td>${inner}</td></tr>
       <tr><td align="center" style="padding:22px 0 0;font:12px ${SANS};color:${C.faint}">
-        Amazon Price Tracker · ${esc(t('alerts sent with your own Resend account'))}
+        Price Tracker · ${esc(t('alerts sent with your own Resend account'))}
       </td></tr>
     </table>
   </td></tr>

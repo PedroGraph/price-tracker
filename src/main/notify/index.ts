@@ -168,8 +168,8 @@ export async function sendTestEmail(): Promise<string> {
   const key = getResendKey()
   if (!key) throw new Error('Add your Resend API key first.')
   if (!emailTo) throw new Error('Add a recipient email first.')
-  return sendRaw({ key, from: emailFrom, to: emailTo, subject: tr('Amazon Price Tracker test'),
-    html: messageEmail(tr('Amazon Price Tracker test'), `<p>${tr('Email alerts are working. 🎉')}</p>`, getSettings().language)
+  return sendRaw({ key, from: emailFrom, to: emailTo, subject: tr('Price Tracker test'),
+    html: messageEmail(tr('Price Tracker test'), `<p>${tr('Email alerts are working. 🎉')}</p>`, getSettings().language)
   })
 }
 
@@ -191,5 +191,5 @@ function showDesktop(alerts: Alert[], rate: number | null): void {
 }
 
 export function showSessionProblem(message: string): void {
-  if (Notification.isSupported()) new Notification({ title: 'Amazon Price Tracker', body: message }).show()
+  if (Notification.isSupported()) new Notification({ title: 'Price Tracker', body: message }).show()
 }

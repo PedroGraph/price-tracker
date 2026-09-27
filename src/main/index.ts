@@ -19,6 +19,10 @@ let win: BrowserWindow | null = null
 let tray: Tray | null = null
 let quitting = false
 
+// Data lives in %APPDATA%/amazon-price-tracker no matter what the app is called,
+// so renaming the product never moves (or loses) the database and the Amazon session.
+app.setPath('userData', join(app.getPath('appData'), 'amazon-price-tracker'))
+
 // `--quit` with no running instance to tell has nothing to do.
 if (!app.requestSingleInstanceLock() || process.argv.includes('--quit')) app.quit()
 // `electron . --quit` asks the running instance to exit cleanly (cookies flushed to disk).
@@ -43,7 +47,7 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 560,
     show: false,
-    title: 'Amazon Price Tracker',
+    title: 'Price Tracker',
     icon: resourceImage('icon.png') ?? undefined,
     autoHideMenuBar: true,
     webPreferences: {
@@ -100,7 +104,7 @@ function createTray(): void {
 
 function setupTray(icon: Electron.NativeImage): void {
   tray = new Tray(icon)
-  tray.setToolTip('Amazon Price Tracker')
+  tray.setToolTip('Price Tracker')
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Open', click: showWindow },

@@ -35,7 +35,7 @@ export async function recordOutcome(outcome: RunOutcome): Promise<void> {
       await safe(() =>
         sendSystemMessage(
           tr('Action needed: sign in to Amazon again'),
-          `<p>${outcome.message}</p><p>${tr('Open Amazon Price Tracker and click {button}. Price checks are paused until then.', {
+          `<p>${outcome.message}</p><p>${tr('Open Price Tracker and click {button}. Price checks are paused until then.', {
             button: `<b>${tr('Open Amazon')}</b>`
           })}</p>`
         )
@@ -52,7 +52,7 @@ export async function recordOutcome(outcome: RunOutcome): Promise<void> {
       showSessionProblem(tr('Amazon prices could not be read. The page layout may have changed.'))
       await safe(() =>
         sendSystemMessage(
-          tr('Amazon Price Tracker can no longer read prices'),
+          tr('Price Tracker can no longer read prices'),
           `<p>${tr("The last {n} checks could not read Amazon's pages:", { n: h.brokenRuns })}</p><p><code>${escapeHtml(outcome.reason)}</code></p>
            <p>${tr(
              'Amazon probably changed its page layout. The selectors live in {file}. No false price or stock alerts are sent while this lasts.',
@@ -67,7 +67,7 @@ export async function recordOutcome(outcome: RunOutcome): Promise<void> {
 
   if (outcome.kind === 'ok') {
     if (h.brokenAlerted) {
-      await safe(() => sendSystemMessage(tr('Amazon Price Tracker is reading prices again'), `<p>${tr('Price checks are back to normal.')}</p>`))
+      await safe(() => sendSystemMessage(tr('Price Tracker is reading prices again'), `<p>${tr('Price checks are back to normal.')}</p>`))
     }
     h.brokenRuns = 0
     h.brokenAlerted = false

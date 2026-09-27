@@ -8,7 +8,7 @@ type Derived = 'hasResendKey' | 'hasTelegramToken'
 
 const DEFAULTS: Omit<Settings, Derived | 'language'> = {
   emailTo: '',
-  emailFrom: 'Amazon Price Tracker <onboarding@resend.dev>',
+  emailFrom: 'Price Tracker <onboarding@resend.dev>',
   intervalMinutes: 60,
   threshold: { unit: 'percent', value: 5 },
   desktopNotifications: false,
@@ -23,12 +23,17 @@ const DEFAULTS: Omit<Settings, Derived | 'language'> = {
   digestHour: 8
 }
 
+const OLD_DEFAULT_FROM = 'Amazon Price Tracker <onboarding@resend.dev>'
+
 export function getSettings(): Settings {
+  const stored = getSetting<Partial<Settings>>('settings', {})
+  // The app was renamed; move the old default sender name along with it.
+  if (stored.emailFrom === OLD_DEFAULT_FROM) stored.emailFrom = DEFAULTS.emailFrom
   return {
     ...DEFAULTS,
     // Until chosen in Settings, follow the Windows display language.
     language: app.getLocale().toLowerCase().startsWith('es') ? 'es' : 'en',
-    ...getSetting<Partial<Settings>>('settings', {}),
+    ...stored,
     hasResendKey: getSetting<string | null>('resendKey', null) !== null,
     hasTelegramToken: getSetting<string | null>('telegramToken', null) !== null
   }

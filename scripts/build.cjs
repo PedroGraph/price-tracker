@@ -26,8 +26,47 @@ function run(command, args) {
   })
 }
 
+/**
+ * electron-builder uploads the release files in parallel and each upload creates the
+ * GitHub release if it's missing, so a new version could end up as two releases for
+ * the same tag (one without latest.yml, which broke updates). Creating the release
+ * first means every upload finds it.
+ */
+async function ensureRelease() {
+  const { version } = require('../package.json')
+  const { owner, repo } = { owner: 'PedroGraph', repo: 'price-tracker' }
+  const token = process.env.GH_TOKEN
+  if (!token) throw new Error('Set GH_TOKEN first (see README → Releases).')
+  const api = (path, init = {}) =>
+    fetch(`https://api.github.com/repos/${owner}/${repo}${path}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', ...(init.headers ?? {}) }
+    })
+  const tag = `v${version}`
+  const res = await api('/releases?per_page=100')
+  if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`)
+  const same = (await res.json()).filter((r) => r.tag_name === tag)
+  if (same.length > 1) {
+    throw new Error(`There are ${same.length} releases for ${tag}. Delete the extra ones on GitHub and run this again.`)
+  }
+  if (same.length === 1) return console.log(`Using the existing release ${tag}.`)
+  const created = await api('/releases', { method: 'POST', body: JSON.stringify({ tag_name: tag, name: version, draft: false }) })
+  if (!created.ok) throw new Error(`Could not create release ${tag}: ${created.status} ${await created.text()}`)
+  console.log(`Created release ${tag}.`)
+}
+
 async function main() {
   const builderArgs = ['electron-builder', '--win', ...process.argv.slice(2)]
+  if (builderArgs.includes('always')) {
+    try {
+      await ensureRelease()
+    } catch (e) {
+      console.error(`
+✖ ${e.message}
+`)
+      process.exit(1)
+    }
+  }
 
   const vite = await run('npx', ['electron-vite', 'build'])
   if (vite.code !== 0) process.exit(vite.code)

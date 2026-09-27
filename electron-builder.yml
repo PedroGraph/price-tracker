@@ -1,5 +1,5 @@
 appId: com.local.amazonpricetracker
-productName: Amazon Price Tracker
+productName: Price Tracker
 directories:
   buildResources: resources
   output: release
@@ -16,6 +16,8 @@ extraResources:
       - tray@2x.png
 win:
   target: nsis
+  # No spaces: GitHub renames them in release assets, which confused updates.
+  artifactName: Price-Tracker-Setup-${version}.${ext}
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true

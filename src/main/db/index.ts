@@ -58,7 +58,8 @@ const MIGRATIONS = [
   `ALTER TABLE products ADD COLUMN target_price REAL;`,
   `ALTER TABLE products ADD COLUMN source TEXT NOT NULL DEFAULT 'cart';`,
   `ALTER TABLE products ADD COLUMN coupon TEXT; ALTER TABLE products ADD COLUMN deal TEXT;`,
-  `ALTER TABLE products ADD COLUMN last_import_fees REAL;`
+  `ALTER TABLE products ADD COLUMN last_import_fees REAL;`,
+  `ALTER TABLE price_history ADD COLUMN seller_id TEXT; ALTER TABLE products ADD COLUMN last_seller_id TEXT;`
 ]
 
 export function openDb(file = join(app.getPath('userData'), 'tracker.db')): void {
@@ -89,6 +90,7 @@ function toProduct(r: ProductRow): Product {
     lastPrice: (r.last_price as number) ?? null,
     lastShipping: (r.last_shipping as number) ?? null,
     lastSeller: (r.last_seller as string) ?? null,
+    lastSellerId: (r.last_seller_id as string) ?? null,
     available: r.available === null ? null : r.available === 1,
     threshold: r.threshold_unit
       ? { unit: r.threshold_unit as Threshold['unit'], value: r.threshold_value as number }
@@ -218,12 +220,19 @@ export function syncCart(items: { asin: string; title: string; url: string; imag
 
 export function updateProductState(
   asin: string,
-  s: { basePrice: number | null; lastPrice: number | null; lastShipping: number | null; lastSeller: string | null; available: boolean }
+  s: {
+    basePrice: number | null
+    lastPrice: number | null
+    lastShipping: number | null
+    lastSeller: string | null
+    lastSellerId: string | null
+    available: boolean
+  }
 ): void {
   db.prepare(
-    `UPDATE products SET base_price = ?, last_price = ?, last_shipping = ?, last_seller = ?, available = ?, last_checked_at = ?
-     WHERE asin = ?`
-  ).run(s.basePrice, s.lastPrice, s.lastShipping, s.lastSeller, s.available ? 1 : 0, now(), asin)
+    `UPDATE products SET base_price = ?, last_price = ?, last_shipping = ?, last_seller = ?, last_seller_id = ?, available = ?,
+     last_checked_at = ? WHERE asin = ?`
+  ).run(s.basePrice, s.lastPrice, s.lastShipping, s.lastSeller, s.lastSellerId, s.available ? 1 : 0, now(), asin)
 }
 
 /** Adds (or re-activates) a product tracked by URL. The title is filled in on the first check. */
@@ -254,7 +263,7 @@ export function firstPriceSince(asin: string, since: string): number | null {
 export function exportRows(asin?: string): Record<string, string | number | null>[] {
   return db
     .prepare(
-      `SELECT h.asin, p.title, h.checked_at, h.source, h.seller, h.condition, h.price AS price_usd,
+      `SELECT h.asin, p.title, h.checked_at, h.source, h.seller, h.seller_id, h.condition, h.price AS price_usd,
               h.shipping AS shipping_usd, h.available
        FROM price_history h JOIN products p ON p.asin = h.asin
        ${asin ? 'WHERE h.asin = ?' : ''} ORDER BY h.id`
@@ -307,9 +316,9 @@ export function setProductOptions(
 
 export function addReading(r: Omit<PriceReading, 'id' | 'checkedAt'>): void {
   db.prepare(
-    `INSERT INTO price_history (asin, price, shipping, seller, condition, source, available, checked_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(r.asin, r.price, r.shipping, r.seller, r.condition, r.source, r.available ? 1 : 0, now())
+    `INSERT INTO price_history (asin, price, shipping, seller, seller_id, condition, source, available, checked_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(r.asin, r.price, r.shipping, r.seller, r.sellerId, r.condition, r.source, r.available ? 1 : 0, now())
 }
 
 export function getHistory(asin: string): PriceReading[] {
@@ -320,6 +329,7 @@ export function getHistory(asin: string): PriceReading[] {
       price: (r.price as number) ?? null,
       shipping: (r.shipping as number) ?? null,
       seller: (r.seller as string) ?? null,
+      sellerId: (r.seller_id as string) ?? null,
       condition: (r.condition as string) ?? null,
       source: r.source as PriceReading['source'],
       available: r.available === 1,

@@ -146,6 +146,9 @@ const ES: Record<string, string> = {
   'Sellers appear after the next check.': 'Los vendedores aparecen después de la próxima revisión.',
   'Free shipping': 'Envío gratis',
   'BEST PRICE': 'MEJOR PRECIO',
+  'View offer': 'Ver oferta',
+  'Seller profile': 'Perfil del vendedor',
+  'since last check': 'desde la última revisión',
   "Every check saves the price, even when it doesn't change. When the price moves further from the base price than this threshold, an alert is sent and that price becomes the new base price. Shipping is never part of the price.":
     'Cada revisión guarda el precio, aunque no cambie. Cuando el precio se aleja del precio base más que este umbral, se envía una alerta y ese precio pasa a ser el nuevo precio base. El envío nunca cuenta en el precio.',
 

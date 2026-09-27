@@ -153,7 +153,7 @@ function registerIpc(): void {
       filters: [{ name: 'CSV', extensions: ['csv'] }]
     })
     if (canceled || !filePath) return null
-    const columns = ['asin', 'title', 'checked_at', 'source', 'seller', 'condition', 'price_usd', 'shipping_usd', 'available']
+    const columns = ['asin', 'title', 'checked_at', 'source', 'seller', 'seller_id', 'condition', 'price_usd', 'shipping_usd', 'available']
     // BOM so Excel opens accents (e.g. Spanish titles) correctly.
     await writeFile(filePath, '\ufeff' + toCsv(db.exportRows(asin), columns), 'utf8')
     return filePath

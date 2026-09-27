@@ -23,7 +23,12 @@ const TRIM = `(selectors) => { try {
     el.querySelectorAll('script, style, noscript, iframe, svg, form input[type=hidden]').forEach((n) => n.remove())
     for (const n of [el, ...el.querySelectorAll('*')]) {
       for (const a of [...n.attributes]) if (!keep.has(a.name)) n.removeAttribute(a.name)
-      if (n.hasAttribute('href')) n.setAttribute('href', n.getAttribute('href').split('?')[0].replace(/\\/ref=.*/, ''))
+      if (n.hasAttribute('href')) {
+        // Keep only the public seller id (used for seller links); drop session/tracking params.
+        const [path, query = ''] = n.getAttribute('href').split('?')
+        const seller = query.match(/(?:^|&)seller=([A-Z0-9]+)/)
+        n.setAttribute('href', path.replace(/\\/ref=.*/, '') + (seller ? '?seller=' + seller[1] : ''))
+      }
     }
     return el.outerHTML
   }

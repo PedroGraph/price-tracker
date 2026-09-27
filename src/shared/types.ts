@@ -19,6 +19,8 @@ export interface Product {
   lastShipping: number | null
   /** Seller of the current price (buy box or cheapest offer). */
   lastSeller: string | null
+  /** Amazon's id for that seller, for links to their offer. */
+  lastSellerId: string | null
   available: boolean | null
   /** Per-product threshold; null means the global one is used. */
   threshold: Threshold | null
@@ -63,6 +65,7 @@ export interface PriceReading {
   price: number | null
   shipping: number | null
   seller: string | null
+  sellerId: string | null
   /** Offer condition, e.g. "New" or "Used - Like New". */
   condition: string | null
   source: 'buybox' | 'offer'

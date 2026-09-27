@@ -108,6 +108,7 @@ export class Scraper {
         price: parsePrice(o.priceText, copPerUsd),
         shipping: /free|gratis/i.test(o.shippingText ?? '') ? 0 : parsePrice(o.shippingText, copPerUsd),
         seller: o.seller ?? 'Unknown seller',
+        sellerId: o.sellerId,
         condition: o.condition
       }))
       .filter((o): o is typeof o & { price: number } => o.price !== null)

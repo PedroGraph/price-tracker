@@ -1,5 +1,5 @@
 import { Notification } from 'electron'
-import { formatCop, formatUsd, priceWithCoupon } from '@shared/pricing'
+import { formatCop, formatUsd, offerUrl, priceWithCoupon } from '@shared/pricing'
 import type { EventType, Product } from '@shared/types'
 import { getResendKey, getSettings, tr } from '../settings'
 import { isQuiet } from '@shared/schedule'
@@ -14,6 +14,7 @@ export interface Alert {
   newPrice: number | null
   shipping: number | null
   seller: string | null
+  sellerId: string | null
 }
 
 // English keys, translated with tr() where used.
@@ -67,7 +68,7 @@ async function sendEmail(alerts: Alert[], rate: number | null): Promise<void> {
       const seller = a.seller ? `<br><small>${esc(tr('Seller: {seller}', { seller: a.seller }))}</small>` : ''
       return `<tr><td style="padding:12px 0;border-bottom:1px solid #eee">
         <strong>${tr(LABELS[a.type])}</strong><br>
-        <a href="${esc(a.product.url)}">${esc(a.product.title)}</a><br>
+        <a href="${esc(offerUrl(a.product.asin, a.sellerId))}">${esc(a.product.title)}</a><br>
         ${esc(summary(a, rate))}${shipping}${seller}</td></tr>`
     })
     .join('')
@@ -123,7 +124,7 @@ function telegramAlerts(alerts: Alert[], rate: number | null): string {
         .filter(Boolean)
         .map((t) => `\n<i>${esc(t)}</i>`)
         .join('')
-      return `<b>${tr(LABELS[a.type])}</b>\n<a href="${esc(a.product.url)}">${esc(a.product.title.slice(0, 90))}</a>\n${esc(summary(a, rate))}${extra}`
+      return `<b>${tr(LABELS[a.type])}</b>\n<a href="${esc(offerUrl(a.product.asin, a.sellerId))}">${esc(a.product.title.slice(0, 90))}</a>\n${esc(summary(a, rate))}${extra}`
     })
     .join('\n\n')
 }

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { priceWithCoupon, thresholdInUsd } from '@shared/pricing'
+import { offerUrl, priceWithCoupon, sellerUrl, thresholdInUsd } from '@shared/pricing'
 import type { PriceReading, Product, Threshold, ThresholdUnit, TrackerEvent } from '@shared/types'
 import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
-import { ChangePill, Segmented, Thumb, timeAgo, Toggle } from '../ui'
+import { ChangePill, Segmented, Sparkline, Thumb, timeAgo, Toggle } from '../ui'
 
 // English keys, translated where shown.
 const EVENT_LABEL: Record<TrackerEvent['type'], string> = {
@@ -81,9 +81,26 @@ export function ProductDetail({
   const shortSpan = points.length > 1 && points.at(-1)!.t - points[0].t < 2 * 86_400_000
   const days = points.length ? Math.max(1, Math.ceil((Date.now() - points[0].t) / 86_400_000)) : 0
 
-  const lastOfferRun = history.filter((r) => r.source === 'offer').at(-1)?.checkedAt
+  // Every seller's price history, from the offer readings saved on each check.
+  const offerReadings = history.filter((r) => r.source === 'offer' && r.price !== null)
+  const lastOfferRun = offerReadings.at(-1)?.checkedAt
+  const sellerKey = (r: PriceReading): string => r.sellerId ?? r.seller ?? '?'
+  const bySeller = new Map<string, PriceReading[]>()
+  for (const r of offerReadings) bySeller.set(sellerKey(r), [...(bySeller.get(sellerKey(r)) ?? []), r])
   const offers = lastOfferRun
-    ? history.filter((r) => r.source === 'offer' && run(r.checkedAt) === run(lastOfferRun)).sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
+    ? offerReadings
+        .filter((r) => run(r.checkedAt) === run(lastOfferRun))
+        .sort((a, b) => a.price! - b.price!)
+        .map((r) => {
+          const past = bySeller.get(sellerKey(r)) ?? []
+          const previous = past.length > 1 ? past[past.length - 2].price : null
+          return {
+            ...r,
+            previous,
+            lowest: Math.min(...past.map((p) => p.price!)),
+            spark: past.slice(-24).map((p) => p.price!)
+          }
+        })
     : []
 
   const saveThreshold = (next: Threshold): void => {
@@ -164,7 +181,14 @@ export function ProductDetail({
             <strong>{fmt(base)}</strong> · {t('set {when}', { when: timeAgo(product.baseSince, t) })}
             {product.lastShipping ? <> · {t('+ {amount} shipping (not counted)', { amount: fmt(product.lastShipping) })}</> : null}
             {product.lastImportFees ? <> · {t('+ {amount} import fees (not counted)', { amount: fmt(product.lastImportFees) })}</> : null}
-            {product.lastSeller && <> · {product.lastSeller}</>}
+            {product.lastSeller && (
+              <>
+                {' · '}
+                <a className="inline" href={offerUrl(product.asin, product.lastSellerId)} target="_blank" rel="noreferrer">
+                  {product.lastSeller} ↗
+                </a>
+              </>
+            )}
           </div>
           {(product.coupon || product.deal) && (
             <div className="promos">
@@ -432,15 +456,38 @@ export function ProductDetail({
               {offers.map((o, i) => (
                 <div key={o.id} className={i === 0 ? 'offer best' : 'offer'}>
                   <div>
-                    <strong>{o.seller}</strong>
+                    {o.sellerId ? (
+                      <a className="seller" href={sellerUrl(o.sellerId)} target="_blank" rel="noreferrer" title={t('Seller profile')}>
+                        {o.seller}
+                      </a>
+                    ) : (
+                      <strong>{o.seller}</strong>
+                    )}
                     <small>
                       {[o.condition, o.shipping ? t('+ {amount} shipping', { amount: fmt(o.shipping) }) : o.shipping === 0 ? t('Free shipping') : null]
                         .filter(Boolean)
                         .join(' · ') || '—'}
                     </small>
+                    <small className="seller-history">
+                      {o.previous !== null && o.previous !== o.price ? (
+                        <span className={o.price! < o.previous ? 'down' : 'up'}>
+                          {o.price! < o.previous ? '▼' : '▲'} {fmt(Math.abs(o.price! - o.previous))} {t('since last check')}
+                        </span>
+                      ) : (
+                        <span>{t('no change')}</span>
+                      )}
+                      {' · '}
+                      {t('lowest {price}', { price: fmt(o.lowest) })}
+                    </small>
                   </div>
-                  {i === 0 && <span className="best-tag">{t('BEST PRICE')}</span>}
-                  <span className="price">{fmt(o.price)}</span>
+                  <Sparkline values={o.spark} width={64} height={26} />
+                  <div className="offer-side">
+                    {i === 0 && <span className="best-tag">{t('BEST PRICE')}</span>}
+                    <span className="price">{fmt(o.price)}</span>
+                    <a className="btn small" href={offerUrl(product.asin, o.sellerId)} target="_blank" rel="noreferrer">
+                      {t('View offer')} ↗
+                    </a>
+                  </div>
                 </div>
               ))}
             </div>

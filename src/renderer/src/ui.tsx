@@ -45,9 +45,9 @@ export function ChangePill({ from, to, suffix }: { from: number | null; to: numb
   )
 }
 
-export function Sparkline({ values }: { values: number[] }) {
-  const w = 124
-  const h = 40
+export function Sparkline({ values, width = 124, height = 40 }: { values: number[]; width?: number; height?: number }) {
+  const w = width
+  const h = height
   if (values.length < 2) return <svg width={w} height={h} />
   const min = Math.min(...values)
   const max = Math.max(...values)

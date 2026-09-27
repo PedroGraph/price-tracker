@@ -68,6 +68,7 @@ describe.runIf(has('signed-in/cart.html'))('signed-in pages', () => {
     for (const o of offers) {
       expect(o.priceText).toMatch(/\d/)
       expect(o.seller).toBeTruthy()
+      expect(o.sellerId).toMatch(/^A[A-Z0-9]{8,}$/)
     }
   })
 

@@ -30,6 +30,7 @@ export interface RawProduct extends PageFlags {
 }
 
 export interface RawOffer {
+  sellerId: string | null
   condition: string | null
   priceText: string | null
   shippingText: string | null
@@ -160,11 +161,16 @@ export function extractOffers(): PageFlags & { offers: RawOffer[] } {
     const priceText = priceOf(el)
     // The pinned block is present even when it says "no featured offers".
     if (!priceText) return
+    const seller = text(el.querySelector('#aod-offer-soldBy a, #aod-offer-soldBy .a-size-small.a-color-base'))
+    // Third-party sellers link to /gp/aag/main?seller=ID; Amazon.com itself has no link.
+    const href = el.querySelector('#aod-offer-soldBy a')?.getAttribute('href') ?? ''
+    const sellerId = href.match(/[?&]seller=([A-Z0-9]+)/)?.[1] ?? (/^amazon(\.com)?$/i.test(seller ?? '') ? 'ATVPDKIKX0DER' : null)
     offers.push({
+      sellerId,
       condition: text(el.querySelector('#aod-offer-heading h5, #aod-offer-heading')),
       priceText,
       shippingText: el.querySelector('[data-csa-c-delivery-price]')?.getAttribute('data-csa-c-delivery-price') ?? null,
-      seller: text(el.querySelector('#aod-offer-soldBy a, #aod-offer-soldBy .a-size-small.a-color-base'))
+      seller
     })
   })
   return { captcha: !!document.querySelector('form[action*="validateCaptcha"]'), loggedOut: false, offers }

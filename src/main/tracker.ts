@@ -101,16 +101,21 @@ async function track(): Promise<RunOutcome> {
       // On the first check there's nothing to compare with, so no "coupon appeared" alert.
       const promos = product.lastCheckedAt ? promoEvents(product, { coupon, deal }) : []
       db.setPromotions(product.asin, coupon, deal, importFees)
-      db.addReading({ asin: product.asin, ...page, condition: null, source: 'buybox' })
+      db.addReading({ asin: product.asin, ...page, sellerId: null, condition: null, source: 'buybox' })
 
       // With "other sellers" on, the tracked price is the cheapest offer (shipping excluded).
-      let best = { price: page.price, shipping: page.shipping, seller: page.seller }
+      let best: { price: number | null; shipping: number | null; seller: string | null; sellerId: string | null } = {
+        price: page.price,
+        shipping: page.shipping,
+        seller: page.seller,
+        sellerId: null
+      }
       if (product.trackOffers) {
         await scraper.pause()
         for (const offer of await scraper.offers(product.asin, rate)) {
           db.addReading({ asin: product.asin, ...offer, source: 'offer', available: true })
           if (best.price === null || offer.price < best.price) {
-            best = { price: offer.price, shipping: offer.shipping, seller: offer.seller }
+            best = { price: offer.price, shipping: offer.shipping, seller: offer.seller, sellerId: offer.sellerId }
           }
         }
       }
@@ -143,6 +148,7 @@ async function track(): Promise<RunOutcome> {
         lastPrice: best.price,
         lastShipping: best.shipping,
         lastSeller: best.seller,
+        lastSellerId: best.sellerId,
         available
       })
       emit()

@@ -111,6 +111,19 @@ export function promoEvents(
   return events
 }
 
+/** Amazon's own merchant id: offers "sold by Amazon.com" have no seller link. */
+export const AMAZON_SELLER_ID = 'ATVPDKIKX0DER'
+
+/** The product page with this seller's offer selected (the one you'd buy from). */
+export function offerUrl(asin: string, sellerId: string | null): string {
+  return `https://www.amazon.com/dp/${asin}${sellerId ? `?smid=${sellerId}` : ''}`
+}
+
+/** The seller's profile and ratings. */
+export function sellerUrl(sellerId: string): string {
+  return `https://www.amazon.com/sp?seller=${sellerId}`
+}
+
 /** Pulls the ASIN out of an Amazon product URL (or accepts a bare ASIN). */
 export function parseAsin(input: string): string | null {
   const text = input.trim()

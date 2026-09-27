@@ -119,6 +119,12 @@ export interface Settings {
   digestHour: number
 }
 
+export interface UpdateState {
+  status: 'idle' | 'checking' | 'downloading' | 'ready' | 'up-to-date' | 'error'
+  version: string | null
+  error: string | null
+}
+
 export type SessionState = 'unknown' | 'logged_in' | 'logged_out' | 'captcha'
 
 export interface Status {
@@ -128,4 +134,6 @@ export interface Status {
   nextRunAt: string | null
   lastError: string | null
   exchangeRate: ExchangeRate | null
+  appVersion: string
+  update: UpdateState
 }

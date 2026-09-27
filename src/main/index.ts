@@ -12,6 +12,7 @@ import { clearAmazonSession, flushAmazonSession, openAmazonWindow } from './scra
 import { getSettings, saveSettings, setResendKey, setSecret } from './settings'
 import { botName, detectChat, sendTelegramTest } from './notify/telegram'
 import { events, runCheck, schedule, status } from './tracker'
+import { checkForUpdates, initUpdater, installUpdate, update } from './updater'
 
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -185,6 +186,11 @@ function registerIpc(): void {
     status.session = 'logged_out'
   })
   ipcMain.handle('tracker:run', () => runCheck())
+  ipcMain.handle('update:check', () => checkForUpdates())
+  ipcMain.handle('update:install', () => {
+    quitting = true
+    installUpdate()
+  })
 
   events.on('status', (s) => win?.webContents.send('status', { ...s, exchangeRate: cachedRate() }))
 }
@@ -196,6 +202,10 @@ app.whenReady().then(async () => {
   createTray()
   status.exchangeRate = (await refreshRate()) ?? cachedRate()
   void runCheck().finally(schedule)
+  initUpdater(() => {
+    status.update = { ...update }
+    events.emit('status', { ...status })
+  })
   // Housekeeping between checks: send alerts held during quiet hours once they end.
   // and send the daily/weekly summary at its hour.
   setInterval(() => {

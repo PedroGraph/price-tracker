@@ -148,6 +148,14 @@ export function App() {
           </button>
         </div>
       )}
+      {status?.update.status === 'ready' && (
+        <div className="banner info">
+          <span>Version {status.update.version} is ready to install.</span>
+          <button className="btn primary" onClick={() => void window.api.installUpdate()}>
+            Restart to update
+          </button>
+        </div>
+      )}
       {status?.lastError && !signedOut && (
         <div className="banner">
           <span>{status.lastError}</span>

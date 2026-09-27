@@ -143,6 +143,7 @@ input::placeholder { color: var(--faint); }
   background: var(--red-soft); color: var(--red); border: 1px solid transparent; font-size: 14px;
 }
 .banner span { flex: 1; }
+.banner.info { background: var(--teal-soft); color: var(--teal); }
 
 main { flex: 1; padding: 22px 32px 40px; }
 

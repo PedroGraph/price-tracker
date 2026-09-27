@@ -144,6 +144,23 @@ tests/                pricing rules + scraper tests against saved Amazon pages
 | `npm run typecheck` | TypeScript check |
 | `npm run dist` | Build the Windows installer |
 
+## Releases and automatic updates
+
+The installed app checks [GitHub Releases](https://github.com/PedroGraph/price-tracker/releases) on startup and every 6 hours, downloads new versions in the background, and offers **Restart to update**.
+
+To publish a version:
+
+1. Bump `version` in `package.json` and commit.
+2. Create a GitHub token with `repo` access and run:
+
+   ```bash
+   GH_TOKEN=<your token> npm run release
+   ```
+
+   This builds the installer and uploads it, together with `latest.yml`, to a draft release. Publish the draft on GitHub.
+
+Updates need the repository to be **public**. With a private repo the app would need a token inside the installer, which it deliberately doesn't ship, so update checks just report an error.
+
 ## License
 
 MIT

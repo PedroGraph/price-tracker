@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { formatCop, formatUsd } from '@shared/pricing'
-import type { Settings, Status } from '@shared/types'
+import type { Settings, Status, UpdateState } from '@shared/types'
 import type { Notify } from '../App'
 import { useMoney } from '../money'
 import { Segmented, Toggle } from '../ui'
@@ -24,6 +24,15 @@ export function HourSelect({ value, onChange, disabled }: { value: number; onCha
       ))}
     </select>
   )
+}
+
+const UPDATE_LABEL: Record<UpdateState['status'], string> = {
+  idle: '',
+  checking: 'Checking for updates…',
+  downloading: 'Downloading the new version…',
+  ready: 'A new version is ready.',
+  'up-to-date': 'You have the latest version.',
+  error: ''
 }
 
 const cleanError = (e: unknown): string =>
@@ -416,6 +425,29 @@ export function SettingsView({
             <small>Opens minimized in the tray when you sign in to Windows.</small>
           </div>
           <Toggle on={draft.launchAtStartup} onChange={(v) => save({ launchAtStartup: v })} label="Start with Windows" />
+        </div>
+        <div className="toggle-row">
+          <div>
+            <strong>Version {status?.appVersion}</strong>
+            <small>
+              {status?.update.status === 'error'
+                ? status.update.error
+                : UPDATE_LABEL[status?.update.status ?? 'idle'] || 'Updates are downloaded automatically from GitHub Releases.'}
+            </small>
+          </div>
+          {status?.update.status === 'ready' ? (
+            <button className="btn primary" onClick={() => void window.api.installUpdate()}>
+              Restart to update
+            </button>
+          ) : (
+            <button
+              className="btn"
+              disabled={status?.update.status === 'checking' || status?.update.status === 'downloading'}
+              onClick={() => void window.api.checkForUpdates()}
+            >
+              Check for updates
+            </button>
+          )}
         </div>
       </section>
     </div>

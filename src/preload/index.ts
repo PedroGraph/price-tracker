@@ -29,6 +29,8 @@ const api = {
   openAmazon: (): Promise<void> => ipcRenderer.invoke('amazon:login'),
   signOut: (): Promise<void> => ipcRenderer.invoke('amazon:logout'),
   runNow: (): Promise<void> => ipcRenderer.invoke('tracker:run'),
+  checkForUpdates: (): Promise<void> => ipcRenderer.invoke('update:check'),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke('update:install'),
   onStatus: (cb: (s: Status) => void): (() => void) => {
     const listener = (_e: unknown, s: Status): void => cb(s)
     ipcRenderer.on('status', listener)

@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "fixtures": "electron scripts/capture-fixtures.cjs",
-    "dist": "electron-vite build && electron-builder --win"
+    "dist": "electron-vite build && electron-builder --win --publish never",
+    "release": "electron-vite build && electron-builder --win --publish always"
   },
   "devDependencies": {
     "@fontsource/jetbrains-mono": "^5.3.0",
@@ -31,5 +32,8 @@
     "typescript": "^7.0.2",
     "vite": "^7.3.6",
     "vitest": "^3.2.7"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

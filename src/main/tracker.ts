@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import { app } from 'electron'
 import { evaluateReading, extraEvents, promoEvents } from '@shared/pricing'
 import type { Status } from '@shared/types'
 import * as db from './db'
@@ -14,7 +15,9 @@ export const status: Status = {
   lastRunAt: null,
   nextRunAt: null,
   lastError: null,
-  exchangeRate: null
+  exchangeRate: null,
+  appVersion: app.getVersion(),
+  update: { status: 'idle', version: null, error: null }
 }
 
 /** Emits 'status' whenever `status` or the product data changes. */

@@ -155,14 +155,16 @@ The installed app checks [GitHub Releases](https://github.com/PedroGraph/price-t
 
 To publish a version:
 
-1. Bump `version` in `package.json` and commit.
-2. Create a GitHub token with `repo` access and run:
+1. Bump `version` in `package.json` (it must be higher than the installed one) and commit.
+2. With a GitHub token that can write to the repo (see below), run in PowerShell:
 
-   ```bash
-   GH_TOKEN=<your token> npm run release
+   ```powershell
+   $env:GH_TOKEN = "<your token>"; npm run release
    ```
 
-   This builds the installer and uploads it, together with `latest.yml`, to a draft release. Publish the draft on GitHub.
+   This builds the installer and publishes it, together with `latest.yml`, as a GitHub release. Installed apps pick it up on their next check or when you click **Check for updates**, then offer **Restart to update**.
+
+**Token:** GitHub → Settings → Developer settings → Personal access tokens → *Fine-grained tokens* → Generate. Repository access: only `price-tracker`; permission **Contents: Read and write**. Keep it out of the repo.
 
 Updates need the repository to be **public**. With a private repo the app would need a token inside the installer, which it deliberately doesn't ship, so update checks just report an error.
 

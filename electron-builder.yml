@@ -23,3 +23,5 @@ publish:
   provider: github
   owner: PedroGraph
   repo: price-tracker
+  # Publish straight away: installed apps don't see draft releases.
+  releaseType: release

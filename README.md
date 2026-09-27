@@ -73,7 +73,7 @@ Price alerts and the app's own warnings (signed out of Amazon, pages can't be re
 
 ### 4. Tune it
 
-In **Settings**: quiet hours (price alerts wait until they end), the check interval (15 minutes minimum), the global threshold, Windows notifications, and starting with Windows (minimized to the tray).
+In **Settings**: a daily or weekly summary, quiet hours (price alerts wait until they end), the check interval (15 minutes minimum), the global threshold, Windows notifications, and starting with Windows (minimized to the tray).
 On a product's page: the per-product threshold and **Track other sellers**.
 
 ## Exchange rate (USD ⇄ COP)

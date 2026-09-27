@@ -17,7 +17,9 @@ const DEFAULTS: Omit<Settings, Derived> = {
   telegramChatId: null,
   quietEnabled: false,
   quietStart: 22,
-  quietEnd: 7
+  quietEnd: 7,
+  digest: 'off',
+  digestHour: 8
 }
 
 export function getSettings(): Settings {

@@ -114,6 +114,9 @@ export interface Settings {
   quietEnabled: boolean
   quietStart: number
   quietEnd: number
+  /** Summary of all products by email/Telegram; weekly ones go out on Mondays. */
+  digest: 'off' | 'daily' | 'weekly'
+  digestHour: number
 }
 
 export type SessionState = 'unknown' | 'logged_in' | 'logged_out' | 'captcha'

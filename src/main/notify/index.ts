@@ -98,10 +98,12 @@ async function sendSystemEmail(subject: string, html: string): Promise<void> {
 
 /** Messages about the app itself, sent to every configured channel. */
 export async function sendSystemMessage(subject: string, html: string): Promise<void> {
-  const results = await Promise.allSettled([
-    sendSystemEmail(subject, html),
-    sendTelegram(`⚠️ <b>${esc(subject)}</b>\n${toTelegramHtml(html)}`)
-  ])
+  await sendReport(subject, html, `⚠️ <b>${esc(subject)}</b>\n${toTelegramHtml(html)}`)
+}
+
+/** An email and a Telegram message with their own formatting (summaries, warnings). */
+export async function sendReport(subject: string, emailHtml: string, telegramHtml: string): Promise<void> {
+  const results = await Promise.allSettled([sendSystemEmail(subject, emailHtml), sendTelegram(telegramHtml)])
   const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
   if (failed.length) throw failed[0].reason
 }

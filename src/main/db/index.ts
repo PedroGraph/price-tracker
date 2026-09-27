@@ -239,6 +239,21 @@ export function deactivateProduct(asin: string): void {
   db.prepare('UPDATE products SET active = 0 WHERE asin = ?').run(asin)
 }
 
+/** First tracked price (cheapest reading of a check) at or after `since`. */
+export function firstPriceSince(asin: string, since: string): number | null {
+  const r = db
+    .prepare(
+      `SELECT MIN(price) AS price FROM price_history WHERE asin = ? AND price IS NOT NULL AND checked_at >= ?
+       GROUP BY ${RUN} ORDER BY ${RUN} LIMIT 1`
+    )
+    .get(asin, since) as { price: number } | undefined
+  return r?.price ?? null
+}
+
+export function countAlertsSince(since: string): number {
+  return (db.prepare(`SELECT COUNT(*) AS n FROM events WHERE type IN ${ALERT_TYPES} AND created_at >= ?`).get(since) as { n: number }).n
+}
+
 export function setPromotions(asin: string, coupon: string | null, deal: string | null, importFees: number | null): void {
   db.prepare('UPDATE products SET coupon = ?, deal = ?, last_import_fees = ? WHERE asin = ?').run(coupon, deal, importFees, asin)
 }

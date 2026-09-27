@@ -297,6 +297,24 @@ export function SettingsView({
       </section>
 
       <section className="card">
+        <h3>Summary</h3>
+        <p className="sub">A recap of every product by email and Telegram. Weekly summaries go out on Mondays.</p>
+        <div className="row" style={{ marginTop: 14 }}>
+          <Segmented
+            options={[
+              { value: 'off', label: 'Off' },
+              { value: 'daily', label: 'Daily' },
+              { value: 'weekly', label: 'Weekly' }
+            ]}
+            value={draft.digest}
+            onChange={(v) => save({ digest: v })}
+          />
+          <span className="muted">at</span>
+          <HourSelect value={draft.digestHour} onChange={(h) => save({ digestHour: h })} disabled={draft.digest === 'off'} />
+        </div>
+      </section>
+
+      <section className="card">
         <div className="row between">
           <div>
             <h3>Quiet hours</h3>

@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { parseAsin } from '@shared/pricing'
 import type { Settings, Threshold } from '@shared/types'
 import * as db from './db'
+import { maybeSendDigest } from './digest'
 import { cachedRate, currentRate, refreshRate } from './exchange'
 import { flushQueuedAlerts, sendTestEmail } from './notify'
 import { clearAmazonSession, flushAmazonSession, openAmazonWindow } from './scraper/amazon'
@@ -180,7 +181,11 @@ app.whenReady().then(async () => {
   status.exchangeRate = (await refreshRate()) ?? cachedRate()
   void runCheck().finally(schedule)
   // Housekeeping between checks: send alerts held during quiet hours once they end.
-  setInterval(() => void flushQueuedAlerts(currentRate()).catch(() => undefined), 5 * 60_000)
+  // and send the daily/weekly summary at its hour.
+  setInterval(() => {
+    void flushQueuedAlerts(currentRate()).catch(() => undefined)
+    void maybeSendDigest(currentRate()).catch(() => undefined)
+  }, 5 * 60_000)
 })
 
 app.on('before-quit', () => {

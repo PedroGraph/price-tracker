@@ -5,7 +5,7 @@
  *
  *   npx electron scripts/capture-fixtures.cjs <ASIN> [OFFERS_ASIN]
  *
- * Close the app first (it shares the session). Files go to tests/fixtures/signed-in
+ * Quit the app first (`npx electron . --quit`): while it runs it locks the session's cookies. Files go to tests/fixtures/signed-in
  * or tests/fixtures/signed-out depending on the session. Review them before committing.
  */
 const { app, BrowserWindow, session } = require('electron')
@@ -17,7 +17,7 @@ const OUT = join(__dirname, '..', 'tests', 'fixtures')
 const [asin, offersAsin = asin] = process.argv.slice(2).filter((a) => /^[A-Z0-9]{10}$/.test(a))
 
 // Runs in the page: keeps only the listed selectors, strips scripts/styles/attributes we don't need.
-const TRIM = `(selectors) => {
+const TRIM = `(selectors) => { try {
   const keep = new Set(['id', 'class', 'data-asin', 'data-itemtype', 'data-price', 'data-csa-c-delivery-price', 'src', 'data-old-hires', 'data-a-hires', 'href'])
   const clean = (el) => {
     el.querySelectorAll('script, style, noscript, iframe, svg, form input[type=hidden]').forEach((n) => n.remove())
@@ -30,7 +30,7 @@ const TRIM = `(selectors) => {
   const parts = []
   for (const s of selectors) document.querySelectorAll(s).forEach((el) => parts.push(clean(el.cloneNode(true))))
   return parts.join('\\n')
-}`
+} catch (e) { return 'TRIM_ERROR ' + e.message } }`
 
 const ACCOUNT = `<a id="nav-link-accountList" href="https://www.amazon.com/gp/css/homepage.html"><span id="nav-link-accountList-nav-line-1">Hello, Test</span></a>`
 
@@ -41,12 +41,17 @@ async function capture(win, url, selectors, file, withAccount = true) {
   await new Promise((r) => setTimeout(r, 3000))
   if (file === 'cart.html') {
     const signedIn = await win.webContents.executeJavaScript(
-      `!!document.querySelector('#nav-link-accountList') && !document.querySelector('#nav-link-accountList').href.includes('/ap/signin')`
+      `(() => {
+        const account = document.querySelector('#nav-link-accountList')
+        const text = document.querySelector('#nav-link-accountList-nav-line-1')?.textContent ?? ''
+        return !!account && !(account.getAttribute('href') || '').includes('/ap/signin') && !/sign in|identif/i.test(text)
+      })()`
     )
     folder = signedIn ? 'signed-in' : 'signed-out'
     mkdirSync(join(OUT, folder), { recursive: true })
   }
   const body = await win.webContents.executeJavaScript(`(${TRIM})(${JSON.stringify(selectors)})`)
+  if (body.startsWith('TRIM_ERROR')) throw new Error(`${file}: ${body}`)
   const html = `<!doctype html><html><body>\n${withAccount ? ACCOUNT + '\n' : ''}${body}\n</body></html>\n`
   writeFileSync(join(OUT, folder, file), html)
   console.log(`${folder}/${file}: ${html.length} bytes`)

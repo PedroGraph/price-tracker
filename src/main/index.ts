@@ -13,7 +13,13 @@ let tray: Tray | null = null
 let quitting = false
 
 if (!app.requestSingleInstanceLock()) app.quit()
-app.on('second-instance', () => showWindow())
+// `electron . --quit` asks the running instance to exit cleanly (cookies flushed to disk).
+app.on('second-instance', (_e, argv) => {
+  if (argv.includes('--quit')) {
+    quitting = true
+    app.quit()
+  } else showWindow()
+})
 
 function showWindow(): void {
   if (!win) return createWindow()

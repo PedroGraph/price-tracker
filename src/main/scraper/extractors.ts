@@ -48,9 +48,11 @@ export function extractCart(): PageFlags & { items: RawCartItem[]; cartFound: bo
   }
   const captcha = !!document.querySelector('form[action*="validateCaptcha"]')
   // Language independent: signed-out pages link the account menu to the sign-in page.
-  const accountLink = document.querySelector('#nav-link-accountList') as HTMLAnchorElement | null
+  // Signed in, the account menu isn't always a link, so read the attribute instead of `.href`.
+  const account = document.querySelector('#nav-link-accountList')
+  const accountHref = account?.getAttribute('href') ?? ''
   const accountText = text(document.querySelector('#nav-link-accountList-nav-line-1'))
-  const loggedOut = !accountLink || /\/ap\/signin/.test(accountLink.href) || /sign in|identif/i.test(accountText ?? '')
+  const loggedOut = !account || /\/ap\/signin/.test(accountHref) || /sign in|identif/i.test(accountText ?? '')
   const seen = new Set<string>()
   const items: RawCartItem[] = []
   const rows = document.querySelectorAll(
@@ -86,14 +88,16 @@ export function extractProduct(): RawProduct {
     }
     return null
   }
-  const accountLink = document.querySelector('#nav-link-accountList') as HTMLAnchorElement | null
+  // Signed in, the account menu isn't always a link, so read the attribute instead of `.href`.
+  const account = document.querySelector('#nav-link-accountList')
+  const accountHref = account?.getAttribute('href') ?? ''
   const accountText = text(document.querySelector('#nav-link-accountList-nav-line-1'))
   const delivery = document.querySelector('#mir-layout-DELIVERY_BLOCK [data-csa-c-delivery-price]')
   const landing = document.querySelector('#landingImage, #imgBlkFront') as HTMLImageElement | null
   return {
     image: landing?.getAttribute('data-old-hires') || landing?.src || null,
     captcha: !!document.querySelector('form[action*="validateCaptcha"]'),
-    loggedOut: !accountLink || /\/ap\/signin/.test(accountLink.href) || /sign in|identif/i.test(accountText ?? ''),
+    loggedOut: !account || /\/ap\/signin/.test(accountHref) || /sign in|identif/i.test(accountText ?? ''),
     priceText: first([
       '#corePrice_feature_div .a-price .a-offscreen',
       '#corePriceDisplay_desktop_feature_div .priceToPay .a-offscreen',

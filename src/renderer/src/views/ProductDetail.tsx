@@ -12,7 +12,9 @@ const EVENT_LABEL: Record<TrackerEvent['type'], string> = {
   price_up: 'Price went up',
   out_of_stock: 'Out of stock',
   back_in_stock: 'Back in stock',
-  tracking_started: 'Tracking started'
+  tracking_started: 'Tracking started',
+  target_reached: 'Target price reached',
+  all_time_low: 'New all-time low'
 }
 
 export const UNITS: { value: ThresholdUnit; label: string }[] = [
@@ -34,11 +36,15 @@ export function ProductDetail({
   onChanged: () => void
   notify: Notify
 }) {
-  const { rate, fmt, toDisplay } = useMoney()
+  const { rate, fmt, toDisplay, fromDisplay, currency } = useMoney()
   const [history, setHistory] = useState<PriceReading[]>([])
   const [events, setEvents] = useState<TrackerEvent[]>([])
   const [asTable, setAsTable] = useState(false)
   const [threshold, setThreshold] = useState<Threshold>(product?.threshold ?? globalThreshold)
+  // Typed in the display currency, stored in USD.
+  const [target, setTarget] = useState<string>(
+    product?.targetPrice != null ? String(Math.round(toDisplay(product.targetPrice) * 100) / 100) : ''
+  )
   const saveTimer = useRef<number | undefined>(undefined)
 
   useEffect(() => {
@@ -92,6 +98,14 @@ export function ProductDetail({
     notify('Using the global threshold again.')
   }
 
+  const saveTarget = async (): Promise<void> => {
+    const value = target.trim() === '' ? null : fromDisplay(Number(target))
+    if (value !== null && !(value > 0)) return notify('Enter a price above zero.', true)
+    await window.api.setProductOptions(product.asin, { targetPrice: value === null ? null : Math.round(value * 100) / 100 })
+    onChanged()
+    notify(value === null ? 'Target price removed.' : `You'll get an alert at ${fmt(value)} or less.`)
+  }
+
   const toggleOffers = async (on: boolean): Promise<void> => {
     await window.api.setProductOptions(product.asin, { trackOffers: on })
     onChanged()
@@ -128,6 +142,10 @@ export function ProductDetail({
             <strong>{fmt(base)}</strong> · set {timeAgo(product.baseSince)}
             {product.lastShipping ? <> · + {fmt(product.lastShipping)} shipping (not counted)</> : null}
             {product.lastSeller && <> · {product.lastSeller}</>}
+          </div>
+          <div className="base-row">
+            <span className="muted">Lowest </span>
+            <strong>{fmt(product.lowestPrice)}</strong> ever · {fmt(product.lowest30)} in 30 days
           </div>
         </div>
 
@@ -247,6 +265,7 @@ export function ProductDetail({
                 <span>
                   {EVENT_LABEL[e.type]}
                   {e.type === 'tracking_started' && <> at {fmt(e.newPrice)}</>}
+                  {(e.type === 'target_reached' || e.type === 'all_time_low') && <> at {fmt(e.newPrice)}</>}
                   {(e.type === 'price_up' || e.type === 'price_down') && (
                     <>
                       {' '}
@@ -296,6 +315,52 @@ export function ProductDetail({
               <span className="faint">Using the global threshold.</span>
             )}
           </p>
+        </div>
+
+        <div className="card">
+          <h3>Target price</h3>
+          <p className="sub">Get one alert when the price drops to this amount or below.</p>
+          <div className="row" style={{ marginTop: 14 }}>
+            <input
+              className="short mono"
+              type="number"
+              min={0}
+              step="any"
+              placeholder={currency === 'COP' ? 'e.g. 3500000' : 'e.g. 950'}
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void saveTarget()}
+            />
+            <span className="muted">{currency}</span>
+            <button className="btn" onClick={() => void saveTarget()}>
+              Save
+            </button>
+            {product.targetPrice !== null && (
+              <button
+                className="btn link"
+                onClick={() => {
+                  setTarget('')
+                  void window.api.setProductOptions(product.asin, { targetPrice: null }).then(() => {
+                    onChanged()
+                    notify('Target price removed.')
+                  })
+                }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+          {product.targetPrice !== null && product.lastPrice !== null && (
+            <p className="explain">
+              {product.lastPrice <= product.targetPrice ? (
+                <b>The current price is at or below your target.</b>
+              ) : (
+                <>
+                  <b>{fmt(product.lastPrice - product.targetPrice)}</b> to go until {fmt(product.targetPrice)}.
+                </>
+              )}
+            </p>
+          )}
         </div>
 
         <div className="card">

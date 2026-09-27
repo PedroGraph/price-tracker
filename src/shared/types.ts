@@ -34,6 +34,11 @@ export interface Product {
   baseSince: string | null
   /** A back_in_stock event in the last 24 hours. */
   backInStock: boolean
+  /** Alert once when the price drops to this USD amount or below. */
+  targetPrice: number | null
+  /** Lowest tracked price ever and in the last 30 days. */
+  lowestPrice: number | null
+  lowest30: number | null
 }
 
 export interface DashboardStats {
@@ -57,7 +62,14 @@ export interface PriceReading {
   checkedAt: string
 }
 
-export type EventType = 'price_up' | 'price_down' | 'out_of_stock' | 'back_in_stock' | 'tracking_started'
+export type EventType =
+  | 'price_up'
+  | 'price_down'
+  | 'out_of_stock'
+  | 'back_in_stock'
+  | 'tracking_started'
+  | 'target_reached'
+  | 'all_time_low'
 
 export interface TrackerEvent {
   id: number

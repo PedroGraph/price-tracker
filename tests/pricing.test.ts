@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateReading, parsePrice, thresholdInUsd } from '../src/shared/pricing'
+import { evaluateReading, extraEvents, parsePrice, thresholdInUsd } from '../src/shared/pricing'
 
 const pct5 = { unit: 'percent' as const, value: 5 }
 const base = { basePrice: 100, wasAvailable: true, available: true, threshold: pct5, copPerUsd: 4000 }
@@ -56,5 +56,27 @@ describe('parsePrice', () => {
     expect(parsePrice('COP 400,000.00', null)).toBeNull()
     expect(parsePrice('FREE', null)).toBeNull()
     expect(parsePrice('', null)).toBeNull()
+  })
+})
+
+describe('extraEvents', () => {
+  const none = { previousPrice: 100, targetPrice: null, lowestBefore: 90, readingsBefore: 10, baseEvents: [] }
+
+  it('fires target_reached once when crossing the target', () => {
+    expect(extraEvents({ ...none, price: 80, targetPrice: 85 })).toContain('target_reached')
+    expect(extraEvents({ ...none, price: 79, previousPrice: 80, targetPrice: 85 })).not.toContain('target_reached')
+    expect(extraEvents({ ...none, price: 84, previousPrice: 90, targetPrice: 85 })).toContain('target_reached')
+    expect(extraEvents({ ...none, price: 86, targetPrice: 85 })).not.toContain('target_reached')
+  })
+
+  it('fires all_time_low only after enough readings and without a price_down alert', () => {
+    expect(extraEvents({ ...none, price: 89 })).toEqual(['all_time_low'])
+    expect(extraEvents({ ...none, price: 89, readingsBefore: 2 })).toEqual([])
+    expect(extraEvents({ ...none, price: 89, baseEvents: ['price_down'] })).toEqual([])
+    expect(extraEvents({ ...none, price: 90 })).toEqual([])
+  })
+
+  it('ignores unavailable readings', () => {
+    expect(extraEvents({ ...none, price: null, targetPrice: 200 })).toEqual([])
   })
 })

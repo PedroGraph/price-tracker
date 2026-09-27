@@ -131,7 +131,17 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
           <h4 title={p.title}>{p.title}</h4>
           {stock}
         </div>
-        {p.sellerCount > 1 && <span className="badge">{p.sellerCount} sellers</span>}
+        <div className="badges">
+          {p.targetPrice !== null && p.lastPrice !== null && p.lastPrice <= p.targetPrice && (
+            <span className="badge good">Target reached</span>
+          )}
+          {/* Only after an actual drop; an unchanged price is trivially the lowest. */}
+          {p.lowestPrice !== null && p.lastPrice !== null && p.firstPrice !== null &&
+            p.lastPrice <= p.lowestPrice && p.lastPrice < p.firstPrice && (
+            <span className="badge good">Lowest ever</span>
+          )}
+          {p.sellerCount > 1 && <span className="badge">{p.sellerCount} sellers</span>}
+        </div>
       </div>
       <div className="priceline">
         <span className="big">{fmt(p.lastPrice)}</span>

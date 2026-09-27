@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { evaluateReading } from '@shared/pricing'
+import { evaluateReading, extraEvents } from '@shared/pricing'
 import type { Status } from '@shared/types'
 import * as db from './db'
 import { cachedRate, currentRate, refreshRate } from './exchange'
@@ -82,6 +82,7 @@ async function track(): Promise<RunOutcome> {
         unreadable.push(product.asin)
         continue
       }
+      const before = db.priceStats(product.asin)
       db.addReading({ asin: product.asin, ...page, condition: null, source: 'buybox' })
 
       // With "other sellers" on, the tracked price is the cheapest offer (shipping excluded).
@@ -105,7 +106,15 @@ async function track(): Promise<RunOutcome> {
         threshold: product.threshold ?? settings.threshold,
         copPerUsd: rate
       })
-      for (const type of result.events) {
+      const extra = extraEvents({
+        price: available ? best.price : null,
+        previousPrice: product.lastPrice,
+        targetPrice: product.targetPrice,
+        lowestBefore: before.lowest,
+        readingsBefore: before.readings,
+        baseEvents: result.events
+      })
+      for (const type of [...result.events, ...extra]) {
         db.addEvent(product.asin, type, product.basePrice, best.price)
         if (type !== 'tracking_started') {
           alerts.push({ product, type, oldPrice: product.basePrice, newPrice: best.price, ...best })

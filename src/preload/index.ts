@@ -7,7 +7,10 @@ const api = {
   getStats: (): Promise<DashboardStats> => ipcRenderer.invoke('products:stats'),
   getHistory: (asin: string): Promise<PriceReading[]> => ipcRenderer.invoke('products:history', asin),
   getEvents: (asin: string): Promise<TrackerEvent[]> => ipcRenderer.invoke('products:events', asin),
-  setProductOptions: (asin: string, opts: { trackOffers?: boolean; threshold?: Threshold | null }): Promise<void> =>
+  setProductOptions: (
+    asin: string,
+    opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null }
+  ): Promise<void> =>
     ipcRenderer.invoke('products:options', asin, opts),
   getSettings: (): Promise<Settings> => ipcRenderer.invoke('settings:get'),
   saveSettings: (patch: Partial<Settings>): Promise<Settings> => ipcRenderer.invoke('settings:save', patch),

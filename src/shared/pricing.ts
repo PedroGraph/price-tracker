@@ -55,6 +55,38 @@ export function evaluateReading(input: {
   return { events, newBase: basePrice }
 }
 
+/** Readings needed before "new all-time low" alerts start, so the first days aren't noisy. */
+export const MIN_READINGS_FOR_LOW = 3
+
+/**
+ * Alerts that don't move the base price: reaching the target price (once per crossing)
+ * and a new all-time low (skipped when a price_down alert already covers it).
+ */
+export function extraEvents(input: {
+  price: number | null
+  previousPrice: number | null
+  targetPrice: number | null
+  lowestBefore: number | null
+  readingsBefore: number
+  baseEvents: EventType[]
+}): EventType[] {
+  const { price, previousPrice, targetPrice, lowestBefore, readingsBefore, baseEvents } = input
+  if (price === null) return []
+  const events: EventType[] = []
+  if (targetPrice !== null && price <= targetPrice && (previousPrice === null || previousPrice > targetPrice)) {
+    events.push('target_reached')
+  }
+  if (
+    lowestBefore !== null &&
+    price < lowestBefore &&
+    readingsBefore >= MIN_READINGS_FOR_LOW &&
+    !baseEvents.includes('price_down')
+  ) {
+    events.push('all_time_low')
+  }
+  return events
+}
+
 /** Parses Amazon price text such as "$1,299.99", "COP 450,000.00" or "US$19.99". */
 export function parsePrice(text: string | null | undefined, copPerUsd: number | null): number | null {
   if (!text) return null

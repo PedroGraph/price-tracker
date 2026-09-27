@@ -17,7 +17,9 @@ const LABELS: Record<EventType, string> = {
   price_up: 'Price went up',
   out_of_stock: 'Out of stock',
   back_in_stock: 'Back in stock',
-  tracking_started: 'Tracking started'
+  tracking_started: 'Tracking started',
+  target_reached: 'Target price reached',
+  all_time_low: 'New all-time low'
 }
 
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
@@ -33,6 +35,8 @@ function summary(a: Alert, rate: number | null): string {
     return `${money(a.oldPrice, rate)} → ${money(a.newPrice, rate)} (${Number(pct) > 0 ? '+' : ''}${pct}%)`
   }
   if (a.type === 'back_in_stock') return `Available again at ${money(a.newPrice, rate)}`
+  if (a.type === 'target_reached') return `Now ${money(a.newPrice, rate)}, at or below your target of ${money(a.product.targetPrice, rate)}`
+  if (a.type === 'all_time_low') return `${money(a.newPrice, rate)} is the lowest price since tracking started`
   return 'The product is currently unavailable'
 }
 

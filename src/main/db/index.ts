@@ -54,7 +54,8 @@ const MIGRATIONS = [
      created_at TEXT NOT NULL
    );
    CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
-  `ALTER TABLE price_history ADD COLUMN condition TEXT;`
+  `ALTER TABLE price_history ADD COLUMN condition TEXT;`,
+  `ALTER TABLE products ADD COLUMN target_price REAL;`
 ]
 
 export function openDb(file = join(app.getPath('userData'), 'tracker.db')): void {
@@ -95,11 +96,14 @@ function toProduct(r: ProductRow): Product {
     spark: [],
     sellerCount: 0,
     baseSince: null,
-    backInStock: false
+    backInStock: false,
+    targetPrice: (r.target_price as number) ?? null,
+    lowestPrice: null,
+    lowest30: null
   }
 }
 
-const ALERT_TYPES = "('price_up','price_down','out_of_stock','back_in_stock')"
+const ALERT_TYPES = "('price_up','price_down','out_of_stock','back_in_stock','target_reached','all_time_low')"
 const RUN = 'substr(checked_at, 1, 16)'
 
 /** Adds the derived fields the dashboard shows. */
@@ -136,8 +140,16 @@ function enrich(p: Product): Product {
   const back = db
     .prepare(`SELECT 1 FROM events WHERE asin = ? AND type = 'back_in_stock' AND created_at >= ? LIMIT 1`)
     .get(p.asin, new Date(Date.now() - 86_400_000).toISOString())
+  const lows = db
+    .prepare(
+      `SELECT MIN(price) AS ever, MIN(CASE WHEN checked_at >= ? THEN price END) AS last30
+       FROM price_history WHERE asin = ? AND price IS NOT NULL`
+    )
+    .get(new Date(Date.now() - 30 * 86_400_000).toISOString(), p.asin) as { ever: number | null; last30: number | null }
   return {
     ...p,
+    lowestPrice: lows.ever,
+    lowest30: lows.last30,
     firstPrice: first?.price ?? null,
     spark,
     sellerCount: p.trackOffers ? sellers : 0,
@@ -209,7 +221,21 @@ export function setProductImage(asin: string, image: string): void {
   db.prepare('UPDATE products SET image = ? WHERE asin = ?').run(image, asin)
 }
 
-export function setProductOptions(asin: string, opts: { trackOffers?: boolean; threshold?: Threshold | null }): void {
+/** Lowest tracked price and number of checks before the current run. */
+export function priceStats(asin: string): { lowest: number | null; readings: number } {
+  const r = db
+    .prepare(`SELECT MIN(price) AS lowest, COUNT(DISTINCT ${RUN}) AS readings FROM price_history WHERE asin = ? AND price IS NOT NULL`)
+    .get(asin) as { lowest: number | null; readings: number }
+  return r
+}
+
+export function setProductOptions(
+  asin: string,
+  opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null }
+): void {
+  if (opts.targetPrice !== undefined) {
+    db.prepare('UPDATE products SET target_price = ? WHERE asin = ?').run(opts.targetPrice, asin)
+  }
   if (opts.trackOffers !== undefined) {
     db.prepare('UPDATE products SET track_offers = ? WHERE asin = ?').run(opts.trackOffers ? 1 : 0, asin)
   }

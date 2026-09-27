@@ -101,7 +101,7 @@ function registerIpc(): void {
   ipcMain.handle('products:stats', () => db.getStats())
   ipcMain.handle('products:history', (_e, asin: string) => db.getHistory(asin))
   ipcMain.handle('products:events', (_e, asin: string) => db.getEvents(asin))
-  ipcMain.handle('products:options', (_e, asin: string, opts: { trackOffers?: boolean; threshold?: Threshold | null }) =>
+  ipcMain.handle('products:options', (_e, asin: string, opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null }) =>
     db.setProductOptions(asin, opts)
   )
   ipcMain.handle('settings:get', () => getSettings())

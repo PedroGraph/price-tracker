@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { toTelegramHtml } from '../src/main/notify/format'
 import { evaluateReading, extraEvents, parseAsin, parsePrice, priceWithCoupon, promoEvents, thresholdInUsd } from '../src/shared/pricing'
 
 const pct5 = { unit: 'percent' as const, value: 5 }
@@ -112,5 +113,13 @@ describe('coupons and deals', () => {
     expect(promoEvents(none, { coupon: 'Apply $5 coupon', deal: 'Limited time deal' })).toEqual(['coupon_added', 'deal_started'])
     expect(promoEvents({ coupon: 'Apply $5 coupon', deal: null }, { coupon: 'Apply $5 coupon', deal: null })).toEqual([])
     expect(promoEvents({ coupon: 'x coupon', deal: 'deal' }, none)).toEqual([])
+  })
+})
+
+describe('toTelegramHtml', () => {
+  it('keeps the tags Telegram accepts and turns paragraphs into lines', () => {
+    expect(toTelegramHtml('<p>Hello <b>you</b></p>\n   <p>See <code>x.ts</code> <br>and <a href="https://a.b">link</a></p>')).toBe(
+      'Hello <b>you</b>\nSee <code>x.ts</code> and <a href="https://a.b">link</a>'
+    )
   })
 })

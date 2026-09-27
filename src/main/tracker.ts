@@ -4,7 +4,7 @@ import type { Status } from '@shared/types'
 import * as db from './db'
 import { cachedRate, currentRate, refreshRate } from './exchange'
 import { recordOutcome, RETRY_DELAYS_MIN, type RunOutcome } from './health'
-import { sendEmail, showDesktop, type Alert } from './notify'
+import { deliverAlerts, type Alert } from './notify'
 import { PageChangedError, Scraper, SessionError } from './scraper/amazon'
 import { getSettings } from './settings'
 
@@ -156,10 +156,9 @@ async function track(): Promise<RunOutcome> {
   }
 
   try {
-    showDesktop(alerts, rate)
-    await sendEmail(alerts, rate)
+    await deliverAlerts(alerts, rate)
   } catch (err) {
-    return { kind: 'error', message: `Email failed: ${err instanceof Error ? err.message : String(err)}` }
+    return { kind: 'error', message: `Sending alerts failed: ${err instanceof Error ? err.message : String(err)}` }
   }
 
   if (checked > 0 && unreadable.length === checked) {

@@ -18,6 +18,10 @@ const api = {
   saveSettings: (patch: Partial<Settings>): Promise<Settings> => ipcRenderer.invoke('settings:save', patch),
   setResendKey: (key: string | null): Promise<void> => ipcRenderer.invoke('settings:resendKey', key),
   sendTestEmail: (): Promise<string> => ipcRenderer.invoke('email:test'),
+  /** Validates and stores the bot token; resolves to the bot's @username. */
+  setTelegramToken: (token: string | null): Promise<string | void> => ipcRenderer.invoke('telegram:token', token),
+  detectTelegramChat: (): Promise<string> => ipcRenderer.invoke('telegram:detect'),
+  sendTelegramTest: (): Promise<void> => ipcRenderer.invoke('telegram:test'),
   getStatus: (): Promise<Status> => ipcRenderer.invoke('status:get'),
   refreshRate: (): Promise<ExchangeRate | null> => ipcRenderer.invoke('rate:refresh'),
   openAmazon: (): Promise<void> => ipcRenderer.invoke('amazon:login'),

@@ -33,6 +33,37 @@ export function SettingsView({
   const [key, setKey] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [sending, setSending] = useState(false)
+  const [tgToken, setTgToken] = useState('')
+  const [tgBusy, setTgBusy] = useState(false)
+
+  const tg = async (fn: () => Promise<string | void>): Promise<void> => {
+    setTgBusy(true)
+    try {
+      const msg = await fn()
+      if (msg) notify(msg)
+    } catch (e) {
+      notify(cleanError(e), true)
+    } finally {
+      setTgBusy(false)
+    }
+  }
+
+  const saveTgToken = (): Promise<void> =>
+    tg(async () => {
+      const bot = await window.api.setTelegramToken(tgToken)
+      setTgToken('')
+      setDraft((d) => ({ ...d, hasTelegramToken: true }))
+      return `Bot @${bot} connected. Now open it in Telegram, send /start and click “Detect chat”.`
+    })
+
+  const detectChat = (): Promise<void> =>
+    tg(async () => {
+      const label = await window.api.detectTelegramChat()
+      const saved = await window.api.getSettings()
+      setDraft(saved)
+      onSaved(saved)
+      return `Alerts will go to ${label}.`
+    })
   const timer = useRef<number | undefined>(undefined)
   const pending = useRef<Partial<Settings>>({})
   const rate = draft.manualRate ?? status?.exchangeRate?.rate ?? null
@@ -166,6 +197,72 @@ export function SettingsView({
             {sending ? 'Sending…' : 'Send test email'}
           </button>
         </div>
+      </section>
+
+      <section className="card">
+        <div className="row between">
+          <div>
+            <h3>Telegram alerts</h3>
+            <p className="sub">Get the same alerts in a Telegram chat with your own bot.</p>
+          </div>
+          <Toggle
+            on={draft.telegramEnabled}
+            onChange={(v) => save({ telegramEnabled: v })}
+            label="Telegram alerts"
+          />
+        </div>
+        <ol className="steps">
+          <li>
+            In Telegram, open <b>@BotFather</b>, send <code>/newbot</code> and copy the token it gives you.
+          </li>
+          <li>Paste the token here.</li>
+          <li>
+            Open your new bot, send <code>/start</code>, then click <b>Detect chat</b>.
+          </li>
+        </ol>
+        <label className="field-label">Bot token</label>
+        <div className="row">
+          <input
+            type="password"
+            autoComplete="off"
+            className="mono"
+            placeholder={draft.hasTelegramToken ? '••••••••••••••••••••  saved (encrypted)' : '123456789:AA…'}
+            value={tgToken}
+            onChange={(e) => setTgToken(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && tgToken && void saveTgToken()}
+          />
+          <button className="btn" onClick={() => void saveTgToken()} disabled={!tgToken || tgBusy}>
+            Save
+          </button>
+        </div>
+        <div className="row" style={{ marginTop: 14 }}>
+          <button className="btn" onClick={() => void detectChat()} disabled={!draft.hasTelegramToken || tgBusy}>
+            Detect chat
+          </button>
+          <button
+            className="btn primary"
+            onClick={() => void tg(async () => (await window.api.sendTelegramTest(), 'Test message sent to Telegram.'))}
+            disabled={!draft.telegramChatId || tgBusy}
+          >
+            Send test message
+          </button>
+          {draft.hasTelegramToken && (
+            <button
+              className="btn link"
+              onClick={() =>
+                void tg(async () => {
+                  await window.api.setTelegramToken(null)
+                  save({ telegramChatId: null, telegramEnabled: false })
+                  setDraft((d) => ({ ...d, hasTelegramToken: false, telegramChatId: null, telegramEnabled: false }))
+                  return 'Telegram disconnected.'
+                })
+              }
+            >
+              Disconnect
+            </button>
+          )}
+        </div>
+        <p className="hint">{draft.telegramChatId ? `Chat connected (id ${draft.telegramChatId}).` : 'No chat connected yet.'}</p>
       </section>
 
       <section className="card">

@@ -224,6 +224,10 @@ main { flex: 1; padding: 22px 32px 40px; }
 .events time { color: var(--faint); font-family: var(--mono); font-size: 13px; min-width: 150px; }
 
 /* ---------- settings ---------- */
+.steps { margin: 14px 0 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
+.steps li { margin: 3px 0; }
+.steps b, .steps code { color: var(--text); }
+code { font-family: var(--mono); font-size: 0.92em; }
 .settings { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 .row { display: flex; align-items: center; gap: 12px; }
 .row.between { justify-content: space-between; }

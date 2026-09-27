@@ -5,7 +5,7 @@ A Windows desktop app (Electron + React + TypeScript) that watches the prices of
 - Reads your cart from your own signed-in Amazon session. The session is kept between restarts.
 - Checks every hour by default and keeps running in the system tray when you close the window.
 - Saves **every** price reading, even tiny changes, so you get a full history chart per product.
-- Alerts by email via [Resend](https://resend.com), and optionally with Windows notifications.
+- Alerts by email via [Resend](https://resend.com), on **Telegram**, and optionally with Windows notifications.
 - Thresholds can be in **%**, **USD** or **COP**, set globally or per product. Prices can be shown in USD or COP.
 - Optional per product: track **other sellers** of the same item on Amazon and follow the cheapest offer.
 - Shipping is shown separately (“+ $X shipping”) and never counts toward the tracked price.
@@ -63,7 +63,15 @@ Everyone who uses the app uses **their own** Resend API key.
 
 **About the sender address:** without a verified domain, Resend only lets you send from `onboarding@resend.dev` **to the email address you signed up with**. For a personal tracker that's all you need, so keep the default *From* value. To send to any address, [verify a domain](https://resend.com/domains) in Resend and change *From* to something like `Tracker <alerts@yourdomain.com>`.
 
-### 3. Tune it
+### 3. Telegram alerts (optional)
+
+1. In Telegram, open **@BotFather**, send `/newbot` and follow the steps. Copy the token it gives you.
+2. In the app's **Settings → Telegram alerts**, paste the token and click **Save**. The token is checked with Telegram and stored encrypted, like the Resend key.
+3. Open your new bot in Telegram and send `/start`. Back in the app, click **Detect chat**, then **Send test message**.
+
+Price alerts and the app's own warnings (signed out of Amazon, pages can't be read) go to every channel you set up.
+
+### 4. Tune it
 
 In **Settings**: the check interval (15 minutes minimum), the global threshold, Windows notifications, and starting with Windows (minimized to the tray).
 On a product's page: the per-product threshold and **Track other sellers**.

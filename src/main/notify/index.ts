@@ -2,6 +2,8 @@ import { Notification } from 'electron'
 import { formatCop, formatUsd, priceWithCoupon } from '@shared/pricing'
 import type { EventType, Product } from '@shared/types'
 import { getResendKey, getSettings } from '../settings'
+import { toTelegramHtml } from './format'
+import { sendTelegram } from './telegram'
 
 export interface Alert {
   product: Product
@@ -47,7 +49,7 @@ function summary(a: Alert, rate: number | null): string {
   return 'The product is currently unavailable'
 }
 
-export async function sendEmail(alerts: Alert[], rate: number | null): Promise<void> {
+async function sendEmail(alerts: Alert[], rate: number | null): Promise<void> {
   const { emailTo, emailFrom } = getSettings()
   const key = getResendKey()
   if (!key || !emailTo || alerts.length === 0) return
@@ -79,7 +81,7 @@ export async function sendEmail(alerts: Alert[], rate: number | null): Promise<v
 }
 
 /** Emails about the app itself (session lost, scraper broken). Silently skipped without email setup. */
-export async function sendSystemEmail(subject: string, html: string): Promise<void> {
+async function sendSystemEmail(subject: string, html: string): Promise<void> {
   const { emailTo, emailFrom } = getSettings()
   const key = getResendKey()
   if (!key || !emailTo) return
@@ -90,6 +92,40 @@ export async function sendSystemEmail(subject: string, html: string): Promise<vo
     subject,
     html: `<div style="font-family:system-ui,sans-serif;max-width:600px"><h2>Amazon Price Tracker</h2>${html}</div>`
   })
+}
+
+/** Messages about the app itself, sent to every configured channel. */
+export async function sendSystemMessage(subject: string, html: string): Promise<void> {
+  const results = await Promise.allSettled([
+    sendSystemEmail(subject, html),
+    sendTelegram(`⚠️ <b>${esc(subject)}</b>\n${toTelegramHtml(html)}`)
+  ])
+  const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+  if (failed.length) throw failed[0].reason
+}
+
+function telegramAlerts(alerts: Alert[], rate: number | null): string {
+  return alerts
+    .map((a) => {
+      const extra = [a.shipping ? `+ ${money(a.shipping, rate)} shipping` : '', a.seller ? `Seller: ${a.seller}` : '']
+        .filter(Boolean)
+        .map((t) => `\n<i>${esc(t)}</i>`)
+        .join('')
+      return `<b>${LABELS[a.type]}</b>\n<a href="${esc(a.product.url)}">${esc(a.product.title.slice(0, 90))}</a>\n${esc(summary(a, rate))}${extra}`
+    })
+    .join('\n\n')
+}
+
+/**
+ * Sends price alerts to every enabled channel. Channels are independent: one failing
+ * doesn't stop the others. Throws the first failure afterwards so it can be reported.
+ */
+export async function deliverAlerts(alerts: Alert[], rate: number | null): Promise<void> {
+  if (alerts.length === 0) return
+  showDesktop(alerts, rate)
+  const results = await Promise.allSettled([sendEmail(alerts, rate), sendTelegram(telegramAlerts(alerts, rate))])
+  const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+  if (failed.length) throw failed[0].reason
 }
 
 /** Returns the Resend email id so it can be looked up in the Resend dashboard. */
@@ -111,7 +147,7 @@ async function sendRaw(m: { key: string; from: string; to: string; subject: stri
   return ((await res.json()) as { id: string }).id
 }
 
-export function showDesktop(alerts: Alert[], rate: number | null): void {
+function showDesktop(alerts: Alert[], rate: number | null): void {
   if (!getSettings().desktopNotifications || !Notification.isSupported()) return
   for (const a of alerts) {
     new Notification({ title: `${LABELS[a.type]} — ${a.product.title.slice(0, 50)}`, body: summary(a, rate) }).show()

@@ -107,6 +107,9 @@ export interface Settings {
   launchAtStartup: boolean
   /** Optional manual COP/USD rate that overrides the fetched one. */
   manualRate: number | null
+  telegramEnabled: boolean
+  telegramChatId: string | null
+  hasTelegramToken: boolean
 }
 
 export type SessionState = 'unknown' | 'logged_in' | 'logged_out' | 'captcha'

@@ -2,42 +2,53 @@ import { app, safeStorage } from 'electron'
 import type { Settings } from '@shared/types'
 import { getSetting, setSetting } from './db'
 
-const DEFAULTS: Omit<Settings, 'hasResendKey'> = {
+/** Fields derived from stored secrets; never saved as plain settings. */
+type Derived = 'hasResendKey' | 'hasTelegramToken'
+
+const DEFAULTS: Omit<Settings, Derived> = {
   emailTo: '',
   emailFrom: 'Amazon Price Tracker <onboarding@resend.dev>',
   intervalMinutes: 60,
   threshold: { unit: 'percent', value: 5 },
   desktopNotifications: false,
   launchAtStartup: false,
-  manualRate: null
+  manualRate: null,
+  telegramEnabled: false,
+  telegramChatId: null
 }
 
 export function getSettings(): Settings {
   return {
     ...DEFAULTS,
     ...getSetting<Partial<Settings>>('settings', {}),
-    hasResendKey: getSetting<string | null>('resendKey', null) !== null
+    hasResendKey: getSetting<string | null>('resendKey', null) !== null,
+    hasTelegramToken: getSetting<string | null>('telegramToken', null) !== null
   }
 }
 
 export function saveSettings(patch: Partial<Settings>): Settings {
-  const { hasResendKey: _ignored, ...rest } = patch
+  const { hasResendKey: _r, hasTelegramToken: _t, ...rest } = patch
   const next = { ...getSettings(), ...rest }
   if (!(next.intervalMinutes >= 15)) next.intervalMinutes = 15
-  const { hasResendKey: _h, ...stored } = next
+  const { hasResendKey: _r2, hasTelegramToken: _t2, ...stored } = next
   setSetting('settings', stored)
   app.setLoginItemSettings({ openAtLogin: next.launchAtStartup, args: ['--hidden'] })
   return getSettings()
 }
 
-/** The Resend key is encrypted with the Windows user account (DPAPI) and never sent to the UI. */
-export function setResendKey(key: string | null): void {
-  if (!key) return setSetting('resendKey', null)
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('OS encryption is not available; refusing to store the key in plain text.')
-  setSetting('resendKey', safeStorage.encryptString(key.trim()).toString('base64'))
+export type SecretName = 'resendKey' | 'telegramToken'
+
+/** Secrets are encrypted with the Windows user account (DPAPI) and never sent to the UI. */
+export function setSecret(name: SecretName, value: string | null): void {
+  if (!value) return setSetting(name, null)
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('OS encryption is not available; refusing to store the secret in plain text.')
+  setSetting(name, safeStorage.encryptString(value.trim()).toString('base64'))
 }
 
-export function getResendKey(): string | null {
-  const stored = getSetting<string | null>('resendKey', null)
+export function getSecret(name: SecretName): string | null {
+  const stored = getSetting<string | null>(name, null)
   return stored ? safeStorage.decryptString(Buffer.from(stored, 'base64')) : null
 }
+
+export const setResendKey = (key: string | null): void => setSecret('resendKey', key)
+export const getResendKey = (): string | null => getSecret('resendKey')

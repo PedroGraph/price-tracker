@@ -6,7 +6,8 @@ import * as db from './db'
 import { cachedRate, refreshRate } from './exchange'
 import { sendTestEmail } from './notify'
 import { clearAmazonSession, flushAmazonSession, openAmazonWindow } from './scraper/amazon'
-import { getSettings, saveSettings, setResendKey } from './settings'
+import { getSettings, saveSettings, setResendKey, setSecret } from './settings'
+import { botName, detectChat, sendTelegramTest } from './notify/telegram'
 import { events, runCheck, schedule, status } from './tracker'
 
 let win: BrowserWindow | null = null
@@ -140,6 +141,19 @@ function registerIpc(): void {
   })
   ipcMain.handle('settings:resendKey', (_e, key: string | null) => setResendKey(key))
   ipcMain.handle('email:test', () => sendTestEmail())
+  // The token is checked with Telegram before it's stored, and only the bot name goes back to the UI.
+  ipcMain.handle('telegram:token', async (_e, token: string | null) => {
+    if (!token) return setSecret('telegramToken', null)
+    const name = await botName(token.trim())
+    setSecret('telegramToken', token)
+    return name
+  })
+  ipcMain.handle('telegram:detect', async () => {
+    const chat = await detectChat()
+    saveSettings({ telegramChatId: chat.id, telegramEnabled: true })
+    return chat.label
+  })
+  ipcMain.handle('telegram:test', () => sendTelegramTest())
   ipcMain.handle('status:get', () => ({ ...status, exchangeRate: cachedRate() }))
   ipcMain.handle('rate:refresh', async () => {
     status.exchangeRate = (await refreshRate(true)) ?? cachedRate()

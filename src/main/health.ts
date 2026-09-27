@@ -1,5 +1,5 @@
 import { getSetting, setSetting } from './db'
-import { sendSystemEmail, showSessionProblem } from './notify'
+import { sendSystemMessage, showSessionProblem } from './notify'
 
 /** Consecutive broken runs before we tell the user the scraper needs fixing. */
 export const BROKEN_RUNS_BEFORE_ALERT = 3
@@ -32,7 +32,7 @@ export async function recordOutcome(outcome: RunOutcome): Promise<void> {
     if (!h.sessionAlerted) {
       showSessionProblem(outcome.message)
       await safe(() =>
-        sendSystemEmail(
+        sendSystemMessage(
           'Action needed: sign in to Amazon again',
           `<p>${outcome.message}</p><p>Open Amazon Price Tracker and click <b>Open Amazon</b>. Price checks are paused until then.</p>`
         )
@@ -48,7 +48,7 @@ export async function recordOutcome(outcome: RunOutcome): Promise<void> {
     if (h.brokenRuns >= BROKEN_RUNS_BEFORE_ALERT && !h.brokenAlerted) {
       showSessionProblem('Amazon prices could not be read. The page layout may have changed.')
       await safe(() =>
-        sendSystemEmail(
+        sendSystemMessage(
           'Amazon Price Tracker can no longer read prices',
           `<p>The last ${h.brokenRuns} checks could not read Amazon's pages:</p><p><code>${escapeHtml(outcome.reason)}</code></p>
            <p>Amazon probably changed its page layout. The selectors live in <code>src/main/scraper/extractors.ts</code>.
@@ -62,7 +62,7 @@ export async function recordOutcome(outcome: RunOutcome): Promise<void> {
 
   if (outcome.kind === 'ok') {
     if (h.brokenAlerted) {
-      await safe(() => sendSystemEmail('Amazon Price Tracker is reading prices again', '<p>Price checks are back to normal.</p>'))
+      await safe(() => sendSystemMessage('Amazon Price Tracker is reading prices again', '<p>Price checks are back to normal.</p>'))
     }
     h.brokenRuns = 0
     h.brokenAlerted = false

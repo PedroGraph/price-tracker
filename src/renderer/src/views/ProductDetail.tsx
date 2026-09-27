@@ -160,6 +160,7 @@ export function ProductDetail({
             <span className="muted">Base price </span>
             <strong>{fmt(base)}</strong> · set {timeAgo(product.baseSince)}
             {product.lastShipping ? <> · + {fmt(product.lastShipping)} shipping (not counted)</> : null}
+            {product.lastImportFees ? <> · + {fmt(product.lastImportFees)} import fees (not counted)</> : null}
             {product.lastSeller && <> · {product.lastSeller}</>}
           </div>
           {(product.coupon || product.deal) && (
@@ -175,6 +176,13 @@ export function ProductDetail({
               )}
             </div>
           )}
+          {product.lastPrice !== null && (product.lastShipping || product.lastImportFees) ? (
+            <div className="base-row">
+              <span className="muted">Delivered total </span>
+              <strong>{fmt(product.lastPrice + (product.lastShipping ?? 0) + (product.lastImportFees ?? 0))}</strong> with
+              shipping{product.lastImportFees ? ' and import fees' : ''}
+            </div>
+          ) : null}
           <div className="base-row">
             <span className="muted">Lowest </span>
             <strong>{fmt(product.lowestPrice)}</strong> ever · {fmt(product.lowest30)} in 30 days

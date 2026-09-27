@@ -80,7 +80,8 @@ app.whenReady().then(async () => {
         '#mir-layout-DELIVERY_BLOCK',
         '#merchantInfoFeature_feature_div',
         '#promoPriceBlockMessage_feature_div',
-        '#dealBadge_feature_div'
+        '#dealBadge_feature_div',
+        '#amazonGlobal_feature_div'
       ],
       'product.html'
     )

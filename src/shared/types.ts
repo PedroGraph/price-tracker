@@ -38,6 +38,8 @@ export interface Product {
   source: 'cart' | 'manual'
   /** Alert once when the price drops to this USD amount or below. */
   targetPrice: number | null
+  /** Import fees deposit in USD when shipping abroad (e.g. to Colombia). Not part of the tracked price. */
+  lastImportFees: number | null
   /** Coupon text shown on the product page, e.g. "Apply $20 coupon". */
   coupon: string | null
   /** Deal badge, e.g. "Limited time deal". */

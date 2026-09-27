@@ -82,6 +82,12 @@ describe('promotions (synthetic markup)', () => {
     expect(p.deal).toBe('Limited time deal')
   })
 
+  it('reads the import fees deposit when shipping abroad', () => {
+    document.body.innerHTML = `${account}
+      <div id="amazonGlobal_feature_div"><span>US$98.40 Import Fees Deposit to Colombia</span><span>Details</span></div>`
+    expect(extractProduct().importFeesText).toBe('US$98.40 Import Fees Deposit to Colombia')
+  })
+
   it('ignores promo blocks that are not coupons or deals', () => {
     document.body.innerHTML = `${account}<div id="promoPriceBlockMessage_feature_div">Get 5% back with Prime Visa</div>`
     const p = extractProduct()

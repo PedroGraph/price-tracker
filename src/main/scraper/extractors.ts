@@ -19,6 +19,7 @@ export interface RawCartItem {
 
 export interface RawProduct extends PageFlags {
   title: string | null
+  importFeesText: string | null
   coupon: string | null
   deal: string | null
   image: string | null
@@ -99,6 +100,11 @@ export function extractProduct(): RawProduct {
   const landing = document.querySelector('#landingImage, #imgBlkFront') as HTMLImageElement | null
   return {
     title: text(document.querySelector('#productTitle')),
+    // "$123.45 Shipping & Import Fees Deposit to Colombia" / "Depósito de tarifas de importación".
+    importFeesText:
+      [...document.querySelectorAll('#amazonGlobal_feature_div span, #exports_desktop_qualifiedBuybox_tlc_feature_div span, #mir-layout-DELIVERY_BLOCK span')]
+        .map((el) => text(el))
+        .find((t) => !!t && /import fees|tarifas de importaci/i.test(t) && /\d/.test(t)) ?? null,
     // Only keep text that actually talks about a coupon / deal; these blocks also hold other promos.
     coupon:
       [

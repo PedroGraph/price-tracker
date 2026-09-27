@@ -199,6 +199,7 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
         {moved !== null && moved !== 0 && <span className="was">{fmt(p.firstPrice)}</span>}
         <ChangePill from={p.firstPrice} to={p.lastPrice} />
         {p.lastShipping ? <span className="ship">+ {fmt(p.lastShipping)} shipping</span> : null}
+        {p.lastImportFees ? <span className="ship">+ {fmt(p.lastImportFees)} import fees</span> : null}
       </div>
       <div className="foot">
         <Sparkline values={p.spark} />

@@ -84,7 +84,7 @@ async function track(): Promise<RunOutcome> {
     for (const product of db.listProducts(true)) {
       checked++
       await scraper.pause()
-      const { image, title, coupon, deal, readable, ...page } = await scraper.product(product.asin, rate)
+      const { image, title, coupon, deal, importFees, readable, ...page } = await scraper.product(product.asin, rate)
       if (title && product.title === product.asin) db.setProductTitle(product.asin, title)
       if (image && (!product.image || /loadIndicators/.test(product.image))) db.setProductImage(product.asin, image)
 
@@ -97,7 +97,7 @@ async function track(): Promise<RunOutcome> {
       const before = db.priceStats(product.asin)
       // On the first check there's nothing to compare with, so no "coupon appeared" alert.
       const promos = product.lastCheckedAt ? promoEvents(product, { coupon, deal }) : []
-      db.setPromotions(product.asin, coupon, deal)
+      db.setPromotions(product.asin, coupon, deal, importFees)
       db.addReading({ asin: product.asin, ...page, condition: null, source: 'buybox' })
 
       // With "other sellers" on, the tracked price is the cheapest offer (shipping excluded).

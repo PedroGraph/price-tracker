@@ -57,7 +57,8 @@ const MIGRATIONS = [
   `ALTER TABLE price_history ADD COLUMN condition TEXT;`,
   `ALTER TABLE products ADD COLUMN target_price REAL;`,
   `ALTER TABLE products ADD COLUMN source TEXT NOT NULL DEFAULT 'cart';`,
-  `ALTER TABLE products ADD COLUMN coupon TEXT; ALTER TABLE products ADD COLUMN deal TEXT;`
+  `ALTER TABLE products ADD COLUMN coupon TEXT; ALTER TABLE products ADD COLUMN deal TEXT;`,
+  `ALTER TABLE products ADD COLUMN last_import_fees REAL;`
 ]
 
 export function openDb(file = join(app.getPath('userData'), 'tracker.db')): void {
@@ -101,6 +102,7 @@ function toProduct(r: ProductRow): Product {
     backInStock: false,
     targetPrice: (r.target_price as number) ?? null,
     source: (r.source as Product['source']) ?? 'cart',
+    lastImportFees: (r.last_import_fees as number) ?? null,
     coupon: (r.coupon as string) ?? null,
     deal: (r.deal as string) ?? null,
     lowestPrice: null,
@@ -237,8 +239,8 @@ export function deactivateProduct(asin: string): void {
   db.prepare('UPDATE products SET active = 0 WHERE asin = ?').run(asin)
 }
 
-export function setPromotions(asin: string, coupon: string | null, deal: string | null): void {
-  db.prepare('UPDATE products SET coupon = ?, deal = ? WHERE asin = ?').run(coupon, deal, asin)
+export function setPromotions(asin: string, coupon: string | null, deal: string | null, importFees: number | null): void {
+  db.prepare('UPDATE products SET coupon = ?, deal = ?, last_import_fees = ? WHERE asin = ?').run(coupon, deal, importFees, asin)
 }
 
 export function setProductTitle(asin: string, title: string): void {

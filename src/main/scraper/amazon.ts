@@ -48,6 +48,16 @@ export async function clearAmazonSession(): Promise<void> {
   await amazonSession().clearStorageData()
 }
 
+/**
+ * Amazon shows either "Import Fees Deposit $X" or a combined "$X Shipping & Import Fees Deposit".
+ * The combined figure includes shipping, which we already show separately, so we only keep
+ * amounts that are labelled as import fees alone.
+ */
+function importFees(text: string | null, copPerUsd: number | null): number | null {
+  if (!text || /shipping|env[ií]o/i.test(text)) return null
+  return parsePrice(text, copPerUsd)
+}
+
 /** Amazon's markup no longer matches our selectors. */
 export class PageChangedError extends Error {}
 
@@ -84,6 +94,7 @@ export class Scraper {
       shipping: /free|gratis/i.test(raw.shippingText ?? '') ? 0 : parsePrice(raw.shippingText, copPerUsd),
       seller: raw.seller,
       title: raw.title,
+      importFees: importFees(raw.importFeesText, copPerUsd),
       coupon: raw.coupon,
       deal: raw.deal,
       image: raw.image && /^https:/.test(raw.image) ? raw.image : null

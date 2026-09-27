@@ -1,5 +1,6 @@
 import { getSetting, setSetting } from './db'
 import { sendSystemMessage, showSessionProblem } from './notify'
+import { tr } from './settings'
 
 /** Consecutive broken runs before we tell the user the scraper needs fixing. */
 export const BROKEN_RUNS_BEFORE_ALERT = 3
@@ -33,8 +34,10 @@ export async function recordOutcome(outcome: RunOutcome): Promise<void> {
       showSessionProblem(outcome.message)
       await safe(() =>
         sendSystemMessage(
-          'Action needed: sign in to Amazon again',
-          `<p>${outcome.message}</p><p>Open Amazon Price Tracker and click <b>Open Amazon</b>. Price checks are paused until then.</p>`
+          tr('Action needed: sign in to Amazon again'),
+          `<p>${outcome.message}</p><p>${tr('Open Amazon Price Tracker and click {button}. Price checks are paused until then.', {
+            button: `<b>${tr('Open Amazon')}</b>`
+          })}</p>`
         )
       )
       h.sessionAlerted = true
@@ -46,13 +49,15 @@ export async function recordOutcome(outcome: RunOutcome): Promise<void> {
   if (outcome.kind === 'broken') {
     h.brokenRuns++
     if (h.brokenRuns >= BROKEN_RUNS_BEFORE_ALERT && !h.brokenAlerted) {
-      showSessionProblem('Amazon prices could not be read. The page layout may have changed.')
+      showSessionProblem(tr('Amazon prices could not be read. The page layout may have changed.'))
       await safe(() =>
         sendSystemMessage(
-          'Amazon Price Tracker can no longer read prices',
-          `<p>The last ${h.brokenRuns} checks could not read Amazon's pages:</p><p><code>${escapeHtml(outcome.reason)}</code></p>
-           <p>Amazon probably changed its page layout. The selectors live in <code>src/main/scraper/extractors.ts</code>.
-           No false price or stock alerts are sent while this lasts.</p>`
+          tr('Amazon Price Tracker can no longer read prices'),
+          `<p>${tr("The last {n} checks could not read Amazon's pages:", { n: h.brokenRuns })}</p><p><code>${escapeHtml(outcome.reason)}</code></p>
+           <p>${tr(
+             'Amazon probably changed its page layout. The selectors live in {file}. No false price or stock alerts are sent while this lasts.',
+             { file: '<code>src/main/scraper/extractors.ts</code>' }
+           )}</p>`
         )
       )
       h.brokenAlerted = true
@@ -62,7 +67,7 @@ export async function recordOutcome(outcome: RunOutcome): Promise<void> {
 
   if (outcome.kind === 'ok') {
     if (h.brokenAlerted) {
-      await safe(() => sendSystemMessage('Amazon Price Tracker is reading prices again', '<p>Price checks are back to normal.</p>'))
+      await safe(() => sendSystemMessage(tr('Amazon Price Tracker is reading prices again'), `<p>${tr('Price checks are back to normal.')}</p>`))
     }
     h.brokenRuns = 0
     h.brokenAlerted = false

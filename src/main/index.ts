@@ -19,7 +19,8 @@ let win: BrowserWindow | null = null
 let tray: Tray | null = null
 let quitting = false
 
-if (!app.requestSingleInstanceLock()) app.quit()
+// `--quit` with no running instance to tell has nothing to do.
+if (!app.requestSingleInstanceLock() || process.argv.includes('--quit')) app.quit()
 // `electron . --quit` asks the running instance to exit cleanly (cookies flushed to disk).
 app.on('second-instance', (_e, argv) => {
   if (argv.includes('--quit')) {

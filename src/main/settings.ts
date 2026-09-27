@@ -1,11 +1,12 @@
 import { app, safeStorage } from 'electron'
+import { translate } from '@shared/i18n'
 import type { Settings } from '@shared/types'
 import { getSetting, setSetting } from './db'
 
 /** Fields derived from stored secrets; never saved as plain settings. */
 type Derived = 'hasResendKey' | 'hasTelegramToken'
 
-const DEFAULTS: Omit<Settings, Derived> = {
+const DEFAULTS: Omit<Settings, Derived | 'language'> = {
   emailTo: '',
   emailFrom: 'Amazon Price Tracker <onboarding@resend.dev>',
   intervalMinutes: 60,
@@ -25,6 +26,8 @@ const DEFAULTS: Omit<Settings, Derived> = {
 export function getSettings(): Settings {
   return {
     ...DEFAULTS,
+    // Until chosen in Settings, follow the Windows display language.
+    language: app.getLocale().toLowerCase().startsWith('es') ? 'es' : 'en',
     ...getSetting<Partial<Settings>>('settings', {}),
     hasResendKey: getSetting<string | null>('resendKey', null) !== null,
     hasTelegramToken: getSetting<string | null>('telegramToken', null) !== null
@@ -40,6 +43,9 @@ export function saveSettings(patch: Partial<Settings>): Settings {
   app.setLoginItemSettings({ openAtLogin: next.launchAtStartup, args: ['--hidden'] })
   return getSettings()
 }
+
+/** Translates into the language chosen in Settings (used for alerts and emails). */
+export const tr = (text: string, vars?: Record<string, string | number>): string => translate(getSettings().language, text, vars)
 
 export type SecretName = 'resendKey' | 'telegramToken'
 

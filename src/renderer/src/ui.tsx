@@ -1,14 +1,15 @@
 import { ChevronDown, ChevronUp, Minus, Package } from 'lucide-react'
+import { useT, type T } from './i18n'
 import { useMoney } from './money'
 
-export function timeAgo(iso: string | null): string {
-  if (!iso) return 'never'
+export function timeAgo(iso: string | null, t: T): string {
+  if (!iso) return t('never')
   const s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000)
-  if (s < 60) return 'just now'
-  if (s < 3600) return `${Math.round(s / 60)} min ago`
-  if (s < 86400) return `${Math.round(s / 3600)} h ago`
+  if (s < 60) return t('just now')
+  if (s < 3600) return t('{n} min ago', { n: Math.round(s / 60) })
+  if (s < 86400) return t('{n} h ago', { n: Math.round(s / 3600) })
   const d = Math.round(s / 86400)
-  return `${d} day${d === 1 ? '' : 's'} ago`
+  return t(d === 1 ? '{n} day ago' : '{n} days ago', { n: d })
 }
 
 export function timeUntil(iso: string | null): string {
@@ -24,12 +25,13 @@ export function Thumb({ src, large }: { src: string | null; large?: boolean }) {
 /** "-$21.00 (-6.0%)" pill; grey "No change" when equal. */
 export function ChangePill({ from, to, suffix }: { from: number | null; to: number | null; suffix?: string }) {
   const { fmtDelta } = useMoney()
+  const { t } = useT()
   if (from === null || to === null) return null
   const diff = Math.round((to - from) * 100) / 100
   if (diff === 0) {
     return (
       <span className="pill flat">
-        <Minus size={12} /> No change
+        <Minus size={12} /> {t('No change')}
       </span>
     )
   }
@@ -38,7 +40,7 @@ export function ChangePill({ from, to, suffix }: { from: number | null; to: numb
     <span className={`pill ${diff < 0 ? 'down' : 'up'}`}>
       {diff < 0 ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
       {fmtDelta(diff)} ({pct > 0 ? '+' : ''}
-      {pct.toFixed(1)}%){suffix}
+      {pct.toFixed(1)}%){suffix && t(suffix)}
     </span>
   )
 }

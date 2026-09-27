@@ -117,6 +117,8 @@ export interface Settings {
   /** Summary of all products by email/Telegram; weekly ones go out on Mondays. */
   digest: 'off' | 'daily' | 'weekly'
   digestHour: number
+  /** UI and alert language. */
+  language: 'en' | 'es'
 }
 
 export interface UpdateState {

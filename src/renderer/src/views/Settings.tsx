@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { formatCop, formatUsd } from '@shared/pricing'
 import type { Settings, Status, UpdateState } from '@shared/types'
 import type { Notify } from '../App'
+import { useT } from '../i18n'
 import { useMoney } from '../money'
 import { Segmented, Toggle } from '../ui'
 import { UNITS } from './ProductDetail'
@@ -26,6 +27,7 @@ export function HourSelect({ value, onChange, disabled }: { value: number; onCha
   )
 }
 
+// English keys, translated where shown.
 const UPDATE_LABEL: Record<UpdateState['status'], string> = {
   idle: '',
   checking: 'Checking for updates…',
@@ -50,6 +52,7 @@ export function SettingsView({
   notify: Notify
 }) {
   const { currency, setCurrency } = useMoney()
+  const { t, tn } = useT()
   const [draft, setDraft] = useState(settings)
   const [key, setKey] = useState('')
   const [showKey, setShowKey] = useState(false)
@@ -74,7 +77,7 @@ export function SettingsView({
       const bot = await window.api.setTelegramToken(tgToken)
       setTgToken('')
       setDraft((d) => ({ ...d, hasTelegramToken: true }))
-      return `Bot @${bot} connected. Now open it in Telegram, send /start and click “Detect chat”.`
+      return t('Bot @{bot} connected. Now open it in Telegram, send /start and click “Detect chat”.', { bot: bot ?? '' })
     })
 
   const detectChat = (): Promise<void> =>
@@ -83,7 +86,7 @@ export function SettingsView({
       const saved = await window.api.getSettings()
       setDraft(saved)
       onSaved(saved)
-      return `Alerts will go to ${label}.`
+      return t('Alerts will go to {chat}.', { chat: label })
     })
   const timer = useRef<number | undefined>(undefined)
   const pending = useRef<Partial<Settings>>({})
@@ -100,7 +103,7 @@ export function SettingsView({
       pending.current = {}
       try {
         onSaved(await window.api.saveSettings(batch))
-        notify('Saved.')
+        notify(t('Saved.'))
       } catch (e) {
         notify(cleanError(e), true)
       }
@@ -114,7 +117,7 @@ export function SettingsView({
     setShowKey(false)
     setDraft((d) => ({ ...d, hasResendKey: true }))
     onSaved({ ...draft, hasResendKey: true })
-    notify('API key saved (encrypted).')
+    notify(t('API key saved (encrypted).'))
   }
 
   const sendTest = async (): Promise<void> => {
@@ -123,7 +126,7 @@ export function SettingsView({
       await saveKey()
       await window.api.saveSettings({ emailTo: draft.emailTo, emailFrom: draft.emailFrom })
       const id = await window.api.sendTestEmail()
-      notify(`Resend accepted the email to ${draft.emailTo} (id ${id}). Not in your inbox? Check spam and resend.com/emails.`)
+      notify(t('Resend accepted the email to {to} (id {id}). Not in your inbox? Check spam and resend.com/emails.', { to: draft.emailTo, id }))
     } catch (e) {
       notify(cleanError(e), true)
     } finally {
@@ -134,20 +137,20 @@ export function SettingsView({
   let equivalent = ''
   if (draft.threshold.unit === 'USD' && rate) equivalent = `≈ ${formatCop(draft.threshold.value * rate)}`
   if (draft.threshold.unit === 'COP' && rate) equivalent = `≈ ${formatUsd(draft.threshold.value / rate)}`
-  if (draft.threshold.unit === 'COP' && !rate) equivalent = 'Needs an exchange rate'
+  if (draft.threshold.unit === 'COP' && !rate) equivalent = t('Needs an exchange rate')
 
   return (
     <div className="settings">
       <section className="card row between">
         <div>
-          <h3>Amazon account</h3>
+          <h3>{t('Amazon account')}</h3>
           <div className="status-line">
             <span className={`dot ${signedIn ? 'on' : 'off'}`} />
             {signedIn
-              ? 'Signed in · the app keeps the session between restarts'
+              ? t('Signed in · the app keeps the session between restarts')
               : status?.session === 'captcha'
-                ? 'Amazon is asking for a CAPTCHA'
-                : 'Not signed in'}
+                ? t('Amazon is asking for a CAPTCHA')
+                : t('Not signed in')}
           </div>
         </div>
         <div className="row">
@@ -156,37 +159,37 @@ export function SettingsView({
               className="btn link"
               onClick={() =>
                 void window.api.signOut().then(
-                  () => notify('Signed out of Amazon.'),
+                  () => notify(t('Signed out of Amazon.')),
                   (e) => notify(cleanError(e), true)
                 )
               }
             >
-              Sign out
+              {t('Sign out')}
             </button>
           )}
           <button className="btn" onClick={() => void window.api.openAmazon()}>
-            Open Amazon
+            {t('Open Amazon')}
           </button>
         </div>
       </section>
 
       <section className="card">
-        <h3>Email alerts</h3>
-        <p className="sub">Sent with your own Resend account.</p>
+        <h3>{t('Email alerts')}</h3>
+        <p className="sub">{t('Sent with your own Resend account.')}</p>
         <label className="field-label">Resend API key</label>
         <div className="row">
           <input
             type={showKey ? 'text' : 'password'}
             autoComplete="off"
             className="mono"
-            placeholder={draft.hasResendKey ? '••••••••••••••••••••  saved (encrypted)' : 're_…'}
+            placeholder={draft.hasResendKey ? `••••••••••••••••••••  ${t('saved (encrypted)')}` : 're_…'}
             value={key}
             onChange={(e) => setKey(e.target.value)}
             onBlur={() => void saveKey().catch((e) => notify(cleanError(e), true))}
             onKeyDown={(e) => e.key === 'Enter' && void saveKey().catch((err) => notify(cleanError(err), true))}
           />
           <button className="btn" onClick={() => setShowKey(!showKey)} disabled={!key}>
-            {showKey ? 'Hide' : 'Show'}
+            {showKey ? t('Hide') : t('Show')}
           </button>
         </div>
         {draft.hasResendKey && (
@@ -195,14 +198,14 @@ export function SettingsView({
             onClick={() =>
               void window.api.setResendKey(null).then(() => {
                 setDraft((d) => ({ ...d, hasResendKey: false }))
-                notify('API key removed.')
+                notify(t('API key removed.'))
               })
             }
           >
-            Remove saved key
+            {t('Remove saved key')}
           </button>
         )}
-        <label className="field-label">Send alerts to</label>
+        <label className="field-label">{t('Send alerts to')}</label>
         <input
           type="email"
           style={{ maxWidth: 380 }}
@@ -210,12 +213,12 @@ export function SettingsView({
           value={draft.emailTo}
           onChange={(e) => save({ emailTo: e.target.value }, 800)}
         />
-        <label className="field-label">From</label>
+        <label className="field-label">{t('From')}</label>
         <input type="text" value={draft.emailFrom} onChange={(e) => save({ emailFrom: e.target.value }, 800)} />
-        <p className="hint">Without a verified domain in Resend, keep onboarding@resend.dev and send to the email you signed up with.</p>
+        <p className="hint">{t('Without a verified domain in Resend, keep onboarding@resend.dev and send to the email you signed up with.')}</p>
         <div style={{ marginTop: 16 }}>
           <button className="btn primary" onClick={() => void sendTest()} disabled={sending}>
-            {sending ? 'Sending…' : 'Send test email'}
+            {sending ? t('Sending…') : t('Send test email')}
           </button>
         </div>
       </section>
@@ -223,49 +226,52 @@ export function SettingsView({
       <section className="card">
         <div className="row between">
           <div>
-            <h3>Telegram alerts</h3>
-            <p className="sub">Get the same alerts in a Telegram chat with your own bot.</p>
+            <h3>{t('Telegram alerts')}</h3>
+            <p className="sub">{t('Get the same alerts in a Telegram chat with your own bot.')}</p>
           </div>
           <Toggle
             on={draft.telegramEnabled}
             onChange={(v) => save({ telegramEnabled: v })}
-            label="Telegram alerts"
+            label={t('Telegram alerts')}
           />
         </div>
         <ol className="steps">
           <li>
-            In Telegram, open <b>@BotFather</b>, send <code>/newbot</code> and copy the token it gives you.
+            {tn('In Telegram, open {botfather}, send {newbot} and copy the token it gives you.', {
+              botfather: <b>@BotFather</b>,
+              newbot: <code>/newbot</code>
+            })}
           </li>
-          <li>Paste the token here.</li>
+          <li>{t('Paste the token here.')}</li>
           <li>
-            Open your new bot, send <code>/start</code>, then click <b>Detect chat</b>.
+            {tn('Open your new bot, send {start}, then click {detect}.', { start: <code>/start</code>, detect: <b>{t('Detect chat')}</b> })}
           </li>
         </ol>
-        <label className="field-label">Bot token</label>
+        <label className="field-label">{t('Bot token')}</label>
         <div className="row">
           <input
             type="password"
             autoComplete="off"
             className="mono"
-            placeholder={draft.hasTelegramToken ? '••••••••••••••••••••  saved (encrypted)' : '123456789:AA…'}
+            placeholder={draft.hasTelegramToken ? `••••••••••••••••••••  ${t('saved (encrypted)')}` : '123456789:AA…'}
             value={tgToken}
             onChange={(e) => setTgToken(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && tgToken && void saveTgToken()}
           />
           <button className="btn" onClick={() => void saveTgToken()} disabled={!tgToken || tgBusy}>
-            Save
+            {t('Save')}
           </button>
         </div>
         <div className="row" style={{ marginTop: 14 }}>
           <button className="btn" onClick={() => void detectChat()} disabled={!draft.hasTelegramToken || tgBusy}>
-            Detect chat
+            {t('Detect chat')}
           </button>
           <button
             className="btn primary"
-            onClick={() => void tg(async () => (await window.api.sendTelegramTest(), 'Test message sent to Telegram.'))}
+            onClick={() => void tg(async () => (await window.api.sendTelegramTest(), t('Test message sent to Telegram.')))}
             disabled={!draft.telegramChatId || tgBusy}
           >
-            Send test message
+            {t('Send test message')}
           </button>
           {draft.hasTelegramToken && (
             <button
@@ -275,20 +281,20 @@ export function SettingsView({
                   await window.api.setTelegramToken(null)
                   save({ telegramChatId: null, telegramEnabled: false })
                   setDraft((d) => ({ ...d, hasTelegramToken: false, telegramChatId: null, telegramEnabled: false }))
-                  return 'Telegram disconnected.'
+                  return t('Telegram disconnected.')
                 })
               }
             >
-              Disconnect
+              {t('Disconnect')}
             </button>
           )}
         </div>
-        <p className="hint">{draft.telegramChatId ? `Chat connected (id ${draft.telegramChatId}).` : 'No chat connected yet.'}</p>
+        <p className="hint">{draft.telegramChatId ? t('Chat connected (id {id}).', { id: draft.telegramChatId }) : t('No chat connected yet.')}</p>
       </section>
 
       <section className="card">
-        <h3>Global alert threshold</h3>
-        <p className="sub">Applies to products without their own threshold.</p>
+        <h3>{t('Global alert threshold')}</h3>
+        <p className="sub">{t('Applies to products without their own threshold.')}</p>
         <div style={{ marginTop: 14 }}>
           <Segmented options={UNITS} value={draft.threshold.unit} onChange={(unit) => save({ threshold: { ...draft.threshold, unit } })} />
         </div>
@@ -306,19 +312,19 @@ export function SettingsView({
       </section>
 
       <section className="card">
-        <h3>Summary</h3>
-        <p className="sub">A recap of every product by email and Telegram. Weekly summaries go out on Mondays.</p>
+        <h3>{t('Summary')}</h3>
+        <p className="sub">{t('A recap of every product by email and Telegram. Weekly summaries go out on Mondays.')}</p>
         <div className="row" style={{ marginTop: 14 }}>
           <Segmented
             options={[
-              { value: 'off', label: 'Off' },
-              { value: 'daily', label: 'Daily' },
-              { value: 'weekly', label: 'Weekly' }
+              { value: 'off', label: t('Off') },
+              { value: 'daily', label: t('Daily') },
+              { value: 'weekly', label: t('Weekly') }
             ]}
             value={draft.digest}
             onChange={(v) => save({ digest: v })}
           />
-          <span className="muted">at</span>
+          <span className="muted">{t('at')}</span>
           <HourSelect value={draft.digestHour} onChange={(h) => save({ digestHour: h })} disabled={draft.digest === 'off'} />
         </div>
       </section>
@@ -326,33 +332,33 @@ export function SettingsView({
       <section className="card">
         <div className="row between">
           <div>
-            <h3>Quiet hours</h3>
-            <p className="sub">Price alerts in this window wait and arrive together when it ends.</p>
+            <h3>{t('Quiet hours')}</h3>
+            <p className="sub">{t('Price alerts in this window wait and arrive together when it ends.')}</p>
           </div>
-          <Toggle on={draft.quietEnabled} onChange={(v) => save({ quietEnabled: v })} label="Quiet hours" />
+          <Toggle on={draft.quietEnabled} onChange={(v) => save({ quietEnabled: v })} label={t('Quiet hours')} />
         </div>
         <div className="row" style={{ marginTop: 14 }}>
-          <span className="muted">From</span>
+          <span className="muted">{t('From')}</span>
           <HourSelect value={draft.quietStart} onChange={(h) => save({ quietStart: h })} disabled={!draft.quietEnabled} />
-          <span className="muted">to</span>
+          <span className="muted">{t('to')}</span>
           <HourSelect value={draft.quietEnd} onChange={(h) => save({ quietEnd: h })} disabled={!draft.quietEnabled} />
         </div>
-        <p className="hint">Warnings about the app itself (signed out of Amazon, pages can't be read) are always sent.</p>
+        <p className="hint">{t("Warnings about the app itself (signed out of Amazon, pages can't be read) are always sent.")}</p>
       </section>
 
       <section className="card">
-        <h3>Check frequency</h3>
+        <h3>{t('Check frequency')}</h3>
         <div style={{ marginTop: 14 }}>
           <Segmented options={INTERVALS} value={String(draft.intervalMinutes)} onChange={(v) => save({ intervalMinutes: Number(v) })} />
         </div>
-        <p className="hint">Minimum 15 minutes between checks.</p>
+        <p className="hint">{t('Minimum 15 minutes between checks.')}</p>
       </section>
 
       <section className="card">
         <div className="row between">
           <div>
-            <h3>Display currency</h3>
-            <p className="sub">Prices are tracked in USD; COP is converted with the rate below.</p>
+            <h3>{t('Display currency')}</h3>
+            <p className="sub">{t('Prices are tracked in USD; COP is converted with the rate below.')}</p>
           </div>
           <Segmented
             options={[
@@ -366,78 +372,92 @@ export function SettingsView({
         <div className="row" style={{ marginTop: 14 }}>
           <span className="muted">
             1 USD = <strong className="mono">{rate ? rate.toLocaleString('es-CO', { maximumFractionDigits: 2 }) : '—'}</strong> COP ·{' '}
-            {draft.manualRate ? 'manual' : (status?.exchangeRate?.source ?? 'open.er-api.com')}
+            {draft.manualRate ? t('manual') : (status?.exchangeRate?.source ?? 'open.er-api.com')}
           </span>
           <button
             className="btn link"
             onClick={() =>
               void window.api.refreshRate().then(
-                () => notify('Exchange rate updated.'),
+                () => notify(t('Exchange rate updated.')),
                 (e) => notify(cleanError(e), true)
               )
             }
           >
-            Refresh
+            {t('Refresh')}
           </button>
         </div>
-        <label className="field-label">Manual rate (optional, overrides the fetched one)</label>
+        <label className="field-label">{t('Manual rate (optional, overrides the fetched one)')}</label>
         <input
           className="short mono"
           type="number"
           min={0}
-          placeholder="e.g. 4100"
+          placeholder={t('e.g. {example}', { example: '4100' })}
           value={draft.manualRate ?? ''}
           onChange={(e) => save({ manualRate: e.target.value ? Number(e.target.value) : null }, 800)}
         />
-        <p className="hint">Amazon doesn't publish the rate it uses, so COP amounts are a close estimate.</p>
+        <p className="hint">{t("Amazon doesn't publish the rate it uses, so COP amounts are a close estimate.")}</p>
       </section>
 
       <section className="card row between">
         <div>
-          <h3>Your data</h3>
-          <p className="sub">Every price reading of every product, as a CSV file for Excel or Google Sheets.</p>
+          <h3>{t('Your data')}</h3>
+          <p className="sub">{t('Every price reading of every product, as a CSV file for Excel or Google Sheets.')}</p>
         </div>
         <button
           className="btn"
           onClick={() =>
             void window.api.exportCsv().then(
-              (path) => path && notify(`Saved ${path}`),
+              (path) => path && notify(t('Saved {path}', { path })),
               (e) => notify(cleanError(e), true)
             )
           }
         >
-          Export CSV
+          {t('Export CSV')}
         </button>
       </section>
 
       <section className="card">
-        <h3>App</h3>
+        <h3>{t('App')}</h3>
         <div className="toggle-row" style={{ marginTop: 8 }}>
           <div>
-            <strong>Windows notifications</strong>
-            <small>Also show alerts as desktop notifications.</small>
+            <strong>{t('Language')}</strong>
+            <small>{t('Used in the app and in email and Telegram alerts.')}</small>
           </div>
-          <Toggle on={draft.desktopNotifications} onChange={(v) => save({ desktopNotifications: v })} label="Windows notifications" />
+          <Segmented
+            options={[
+              { value: 'en', label: 'English' },
+              { value: 'es', label: 'Español' }
+            ]}
+            value={draft.language}
+            onChange={(v) => save({ language: v })}
+          />
         </div>
         <div className="toggle-row">
           <div>
-            <strong>Start with Windows</strong>
-            <small>Opens minimized in the tray when you sign in to Windows.</small>
+            <strong>{t('Windows notifications')}</strong>
+            <small>{t('Also show alerts as desktop notifications.')}</small>
           </div>
-          <Toggle on={draft.launchAtStartup} onChange={(v) => save({ launchAtStartup: v })} label="Start with Windows" />
+          <Toggle on={draft.desktopNotifications} onChange={(v) => save({ desktopNotifications: v })} label={t('Windows notifications')} />
         </div>
         <div className="toggle-row">
           <div>
-            <strong>Version {status?.appVersion}</strong>
+            <strong>{t('Start with Windows')}</strong>
+            <small>{t('Opens minimized in the tray when you sign in to Windows.')}</small>
+          </div>
+          <Toggle on={draft.launchAtStartup} onChange={(v) => save({ launchAtStartup: v })} label={t('Start with Windows')} />
+        </div>
+        <div className="toggle-row">
+          <div>
+            <strong>{t('Version {version}', { version: status?.appVersion ?? '' })}</strong>
             <small>
               {status?.update.status === 'error'
                 ? status.update.error
-                : UPDATE_LABEL[status?.update.status ?? 'idle'] || 'Updates are downloaded automatically from GitHub Releases.'}
+                : t(UPDATE_LABEL[status?.update.status ?? 'idle'] || 'Updates are downloaded automatically from GitHub Releases.')}
             </small>
           </div>
           {status?.update.status === 'ready' ? (
             <button className="btn primary" onClick={() => void window.api.installUpdate()}>
-              Restart to update
+              {t('Restart to update')}
             </button>
           ) : (
             <button
@@ -445,7 +465,7 @@ export function SettingsView({
               disabled={status?.update.status === 'checking' || status?.update.status === 'downloading'}
               onClick={() => void window.api.checkForUpdates()}
             >
-              Check for updates
+              {t('Check for updates')}
             </button>
           )}
         </div>

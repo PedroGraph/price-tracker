@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, Moon, RefreshCw, Settings as Gear, Sun, TrendingUp } from 'lucide-react'
 import type { DashboardStats, Product, Settings, Status } from '@shared/types'
+import { LangContext, useT } from './i18n'
 import { MoneyContext, type DisplayCurrency } from './money'
 import { timeAgo, timeUntil } from './ui'
 import { Dashboard } from './views/Dashboard'
@@ -28,11 +29,20 @@ function store(key: string, value: string): void {
 }
 
 export function App() {
+  const [settings, setSettings] = useState<Settings | null>(null)
+  return (
+    <LangContext.Provider value={settings?.language ?? 'en'}>
+      <Shell settings={settings} setSettings={setSettings} />
+    </LangContext.Provider>
+  )
+}
+
+function Shell({ settings, setSettings }: { settings: Settings | null; setSettings: (s: Settings) => void }) {
+  const { t } = useT()
   const [view, setView] = useState<View>({ name: 'dashboard' })
   const [status, setStatus] = useState<Status | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [settings, setSettings] = useState<Settings | null>(null)
   const [currency, setCurrencyState] = useState<DisplayCurrency>(() => load('currency', 'USD'))
   const [theme, setTheme] = useState<Theme>(() =>
     load('theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -61,7 +71,7 @@ export function App() {
       off()
       clearInterval(t)
     }
-  }, [reload])
+  }, [reload, setSettings])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -82,13 +92,13 @@ export function App() {
   const rate = status?.exchangeRate?.rate ?? null
   const signedOut = status?.session === 'logged_out' || status?.session === 'captcha'
   const themeButton = (
-    <button className="icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Toggle theme">
+    <button className="icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={t('Toggle theme')}>
       {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
     </button>
   )
   const back = (
     <button className="btn" onClick={() => setView({ name: 'dashboard' })}>
-      <ChevronLeft size={16} /> Dashboard
+      <ChevronLeft size={16} /> {t('Dashboard')}
     </button>
   )
 
@@ -102,25 +112,25 @@ export function App() {
                 <TrendingUp size={22} />
               </div>
               <div>
-                <h1>Price Tracker</h1>
+                <h1>{t('Price Tracker')}</h1>
                 {signedOut ? (
-                  <p className="warn">Not connected to Amazon</p>
+                  <p className="warn">{t('Not connected to Amazon')}</p>
                 ) : (
-                  <p>Connected to your Amazon cart · runs in the tray</p>
+                  <p>{t('Connected to your Amazon cart · runs in the tray')}</p>
                 )}
               </div>
             </div>
             <div className="spacer" />
             <div className="sync">
-              <button onClick={() => void window.api.runNow()} disabled={status?.running} title="Check now">
+              <button onClick={() => void window.api.runNow()} disabled={status?.running} title={t('Check now')}>
                 <RefreshCw size={15} className={status?.running ? 'spin' : ''} />
-                {status?.running ? 'Checking…' : `Updated ${timeAgo(status?.lastRunAt ?? null)}`}
+                {status?.running ? t('Checking…') : t('Updated {when}', { when: timeAgo(status?.lastRunAt ?? null, t) })}
               </button>
               <span className="sep" />
-              <span>Next check in {timeUntil(status?.nextRunAt ?? null)}</span>
+              <span>{t('Next check in {time}', { time: timeUntil(status?.nextRunAt ?? null) })}</span>
             </div>
             {themeButton}
-            <button className="icon-btn" onClick={() => setView({ name: 'settings' })} aria-label="Settings">
+            <button className="icon-btn" onClick={() => setView({ name: 'settings' })} aria-label={t('Settings')}>
               <Gear size={18} />
             </button>
           </>
@@ -128,7 +138,7 @@ export function App() {
           <>
             {back}
             <span className={view.name === 'settings' ? 'crumb strong' : 'crumb'}>
-              {view.name === 'settings' ? 'Settings' : 'Product details'}
+              {view.name === 'settings' ? t('Settings') : t('Product details')}
             </span>
             <div className="spacer" />
             {themeButton}
@@ -140,19 +150,19 @@ export function App() {
         <div className="banner">
           <span>
             {status?.session === 'captcha'
-              ? 'Amazon is asking for a CAPTCHA. Open Amazon, solve it, and close the window.'
-              : 'Sign in to Amazon so the app can read your cart. Close the window when you are done.'}
+              ? t('Amazon is asking for a CAPTCHA. Open Amazon, solve it, and close the window.')
+              : t('Sign in to Amazon so the app can read your cart. Close the window when you are done.')}
           </span>
           <button className="btn" onClick={() => void window.api.openAmazon()}>
-            Open Amazon
+            {t('Open Amazon')}
           </button>
         </div>
       )}
       {status?.update.status === 'ready' && (
         <div className="banner info">
-          <span>Version {status.update.version} is ready to install.</span>
+          <span>{t('Version {version} is ready to install.', { version: status.update.version ?? '' })}</span>
           <button className="btn primary" onClick={() => void window.api.installUpdate()}>
-            Restart to update
+            {t('Restart to update')}
           </button>
         </div>
       )}

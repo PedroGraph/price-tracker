@@ -1,0 +1,44 @@
+/**
+ * Builds the app and runs electron-builder, retrying when Windows briefly locks a
+ * freshly written .exe (antivirus scanning it). That shows up as "spawn UNKNOWN",
+ * EBUSY or EPERM while NSIS makes the uninstaller; a second try then works.
+ * Any other failure stops immediately.
+ *
+ *   node scripts/build.cjs --publish never|always
+ */
+const { spawn } = require('node:child_process')
+
+const ATTEMPTS = 4
+const WAIT_MS = 10000
+const TRANSIENT = /spawn UNKNOWN|EBUSY|EPERM|resource busy or locked/i
+
+function run(command, args) {
+  return new Promise((resolve) => {
+    let output = ''
+    const child = spawn(command, args, { shell: true, stdio: ['inherit', 'pipe', 'pipe'] })
+    for (const stream of ['stdout', 'stderr']) {
+      child[stream].on('data', (chunk) => {
+        output += chunk
+        process[stream].write(chunk)
+      })
+    }
+    child.on('close', (code) => resolve({ code, output }))
+  })
+}
+
+async function main() {
+  const builderArgs = ['electron-builder', '--win', ...process.argv.slice(2)]
+
+  const vite = await run('npx', ['electron-vite', 'build'])
+  if (vite.code !== 0) process.exit(vite.code)
+
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    const { code, output } = await run('npx', builderArgs)
+    if (code === 0) return
+    if (attempt === ATTEMPTS || !TRANSIENT.test(output)) process.exit(code)
+    console.log(`\n⟳ Windows locked a file while packaging (usually the antivirus scanning it). Retrying in ${WAIT_MS / 1000}s… (${attempt + 1}/${ATTEMPTS})\n`)
+    await new Promise((r) => setTimeout(r, WAIT_MS))
+  }
+}
+
+main()

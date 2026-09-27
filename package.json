@@ -12,8 +12,8 @@
     "test": "vitest run",
     "fixtures": "electron scripts/capture-fixtures.cjs",
     "email:preview": "vite-node --config vitest.config.ts scripts/email-preview.ts",
-    "dist": "electron-vite build && electron-builder --win --publish never",
-    "release": "electron-vite build && electron-builder --win --publish always"
+    "dist": "node scripts/build.cjs --publish never",
+    "release": "node scripts/build.cjs --publish always"
   },
   "devDependencies": {
     "@fontsource/jetbrains-mono": "^5.3.0",

@@ -162,6 +162,8 @@ To publish a version:
    $env:GH_TOKEN = "<your token>"; npm run release
    ```
 
+   If Windows briefly locks a freshly built file (usually the antivirus scanning it), the build retries by itself.
+
    This builds the installer and publishes it, together with `latest.yml`, as a GitHub release. Installed apps pick it up on their next check or when you click **Check for updates**, then offer **Restart to update**.
 
 **Token:** GitHub → Settings → Developer settings → Personal access tokens → *Fine-grained tokens* → Generate. Repository access: only `price-tracker`; permission **Contents: Read and write**. Keep it out of the repo.

@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
+import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { toCsv } from '@shared/csv'
@@ -42,6 +43,7 @@ function createWindow(): void {
     minHeight: 560,
     show: false,
     title: 'Amazon Price Tracker',
+    icon: resourceImage('icon.png') ?? undefined,
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -72,8 +74,18 @@ function createWindow(): void {
   else void win.loadFile(join(__dirname, '../renderer/index.html'))
 }
 
+/** resources/<name> next to the app (packaged: copied via extraResources), or null if it isn't there. */
+function resourceImage(name: string): Electron.NativeImage | null {
+  const file = app.isPackaged ? join(process.resourcesPath, name) : join(app.getAppPath(), 'resources', name)
+  if (!existsSync(file)) return null
+  const image = nativeImage.createFromPath(file)
+  return image.isEmpty() ? null : image
+}
+
 function createTray(): void {
-  // 16x16 orange dot drawn in BGRA; replace with resources/icon.ico for a real icon.
+  // Your icon from resources/tray.png, or a 16x16 orange dot drawn in BGRA as a placeholder.
+  const custom = resourceImage('tray.png')
+  if (custom) return setupTray(custom)
   const size = 16
   const pixels = Buffer.alloc(size * size * 4)
   for (let y = 0; y < size; y++) {
@@ -82,7 +94,10 @@ function createTray(): void {
       pixels.set(inside ? [0x00, 0x99, 0xff, 0xff] : [0, 0, 0, 0], (y * size + x) * 4)
     }
   }
-  const icon = nativeImage.createFromBitmap(pixels, { width: size, height: size })
+  setupTray(nativeImage.createFromBitmap(pixels, { width: size, height: size }))
+}
+
+function setupTray(icon: Electron.NativeImage): void {
   tray = new Tray(icon)
   tray.setToolTip('Amazon Price Tracker')
   tray.setContextMenu(

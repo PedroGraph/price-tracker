@@ -144,6 +144,10 @@ tests/                pricing rules + scraper tests against saved Amazon pages
 | `npm run typecheck` | TypeScript check |
 | `npm run dist` | Build the Windows installer |
 
+## Icon
+
+Put your icon files in [`resources/`](resources/README.md) (`icon.ico`, `icon.png`, `tray.png`); the build and the running app pick them up. Without them the app uses a placeholder.
+
 ## Releases and automatic updates
 
 The installed app checks [GitHub Releases](https://github.com/PedroGraph/price-tracker/releases) on startup and every 6 hours, downloads new versions in the background, and offers **Restart to update**.

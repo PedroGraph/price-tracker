@@ -6,6 +6,14 @@ directories:
 files:
   - out/**
   - package.json
+# Runtime icons (window + tray); icon.ico for the .exe is picked up from buildResources.
+extraResources:
+  - from: resources
+    to: .
+    filter:
+      - icon.png
+      - tray.png
+      - tray@2x.png
 win:
   target: nsis
 nsis:

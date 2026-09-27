@@ -239,6 +239,28 @@ const ES: Record<string, string> = {
   'Version {version}': 'Versión {version}',
   'Check for updates': 'Buscar actualizaciones',
 
+  // ---- alert emails
+  'Up {pct}%': 'Subió un {pct} %',
+  'Down {pct}%': 'Bajó un {pct} %',
+  'The price went up': 'El precio subió',
+  'The price dropped': 'El precio bajó',
+  'It ran out of stock': 'Se agotó',
+  'It is available again': 'Está disponible otra vez',
+  'It reached your target price': 'Llegó a tu precio objetivo',
+  'Lowest price since tracking started': 'El precio más bajo desde que empezó el rastreo',
+  'A coupon is available': 'Hay un cupón disponible',
+  'A deal just started': 'Empezó una oferta',
+  Before: 'Antes',
+  Now: 'Ahora',
+  'Sold by {seller}': 'Vendido por {seller}',
+  'View in your Amazon cart': 'Ver en tu carrito de Amazon',
+  'View on Amazon': 'Ver en Amazon',
+  'We keep checking this product in your Amazon cart. You can change the alert threshold or stop tracking it from the app.':
+    'Seguimos revisando este producto en tu carrito de Amazon. Puedes ajustar el umbral de alerta o dejar de rastrearlo desde la app.',
+  'We keep checking this product. You can change the alert threshold or stop tracking it from the app.':
+    'Seguimos revisando este producto. Puedes ajustar el umbral de alerta o dejar de rastrearlo desde la app.',
+  'alerts sent with your own Resend account': 'alertas enviadas con tu propia cuenta de Resend',
+
   // ---- notifications (main process)
   'Available again at {price}': 'Disponible de nuevo a {price}',
   'Now {price}, at or below your target of {target}': 'Ahora {price}, en o por debajo de tu objetivo de {target}',

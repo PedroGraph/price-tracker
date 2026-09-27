@@ -4,6 +4,7 @@ import type { EventType, Product } from '@shared/types'
 import { getResendKey, getSettings, tr } from '../settings'
 import { isQuiet } from '@shared/schedule'
 import { getSetting, setSetting } from '../db'
+import { alertEmail, messageEmail, type EmailAlert } from './emailTemplate'
 import { toTelegramHtml } from './format'
 import { sendTelegram } from './telegram'
 
@@ -58,34 +59,29 @@ function summary(a: Alert, rate: number | null): string {
 }
 
 async function sendEmail(alerts: Alert[], rate: number | null): Promise<void> {
-  const { emailTo, emailFrom } = getSettings()
+  const { emailTo, emailFrom, language } = getSettings()
   const key = getResendKey()
   if (!key || !emailTo || alerts.length === 0) return
 
-  const rows = alerts
-    .map((a) => {
-      const shipping = a.shipping ? `<br><small>${esc(tr('+ {amount} shipping', { amount: money(a.shipping, rate) }))}</small>` : ''
-      const seller = a.seller ? `<br><small>${esc(tr('Seller: {seller}', { seller: a.seller }))}</small>` : ''
-      return `<tr><td style="padding:12px 0;border-bottom:1px solid #eee">
-        <strong>${tr(LABELS[a.type])}</strong><br>
-        <a href="${esc(offerUrl(a.product.asin, a.sellerId))}">${esc(a.product.title)}</a><br>
-        ${esc(summary(a, rate))}${shipping}${seller}</td></tr>`
-    })
-    .join('')
+  const cards: EmailAlert[] = alerts.map((a) => ({
+    type: a.type,
+    title: a.product.title,
+    image: a.product.image,
+    seller: a.seller,
+    url: offerUrl(a.product.asin, a.sellerId),
+    inCart: a.product.source === 'cart',
+    // Stock alerts show the current price only; the others compare with the base.
+    oldPrice: a.type === 'price_up' || a.type === 'price_down' ? a.oldPrice : null,
+    newPrice: a.type === 'out_of_stock' ? null : a.newPrice,
+    detail: a.type === 'price_up' || a.type === 'price_down' || a.type === 'out_of_stock' ? null : summary(a, rate)
+  }))
 
   const subject =
     alerts.length === 1
       ? `${tr(LABELS[alerts[0].type])}: ${alerts[0].product.title.slice(0, 60)}`
       : tr('{n} price alerts from your Amazon cart', { n: alerts.length })
 
-  await sendRaw({
-    key,
-    from: emailFrom,
-    to: emailTo,
-    subject,
-    html: `<div style="font-family:system-ui,sans-serif;max-width:600px"><h2>Amazon Price Tracker</h2>
-      <table style="width:100%;border-collapse:collapse">${rows}</table></div>`
-  })
+  await sendRaw({ key, from: emailFrom, to: emailTo, subject, html: alertEmail(cards, rate, language) })
 }
 
 /** Emails about the app itself (session lost, scraper broken). Silently skipped without email setup. */
@@ -98,7 +94,7 @@ async function sendSystemEmail(subject: string, html: string): Promise<void> {
     from: emailFrom,
     to: emailTo,
     subject,
-    html: `<div style="font-family:system-ui,sans-serif;max-width:600px"><h2>Amazon Price Tracker</h2>${html}</div>`
+    html: messageEmail(subject, html, getSettings().language)
   })
 }
 
@@ -172,7 +168,9 @@ export async function sendTestEmail(): Promise<string> {
   const key = getResendKey()
   if (!key) throw new Error('Add your Resend API key first.')
   if (!emailTo) throw new Error('Add a recipient email first.')
-  return sendRaw({ key, from: emailFrom, to: emailTo, subject: tr('Amazon Price Tracker test'), html: `<p>${tr('Email alerts are working. 🎉')}</p>` })
+  return sendRaw({ key, from: emailFrom, to: emailTo, subject: tr('Amazon Price Tracker test'),
+    html: messageEmail(tr('Amazon Price Tracker test'), `<p>${tr('Email alerts are working. 🎉')}</p>`, getSettings().language)
+  })
 }
 
 async function sendRaw(m: { key: string; from: string; to: string; subject: string; html: string }): Promise<string> {

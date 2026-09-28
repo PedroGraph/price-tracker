@@ -19,8 +19,14 @@ win:
   # No spaces: GitHub renames them in release assets, which confused updates.
   artifactName: Price-Tracker-Setup-${version}.${ext}
 nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
+  # One-click, per-user install (%LOCALAPPDATA%\Programs): no wizard and no admin prompt,
+  # so updates can install silently and the app comes back by itself.
+  oneClick: true
+  perMachine: false
+  runAfterFinish: true
+  createDesktopShortcut: true
+  shortcutName: Price Tracker
+  deleteAppDataOnUninstall: false
 publish:
   provider: github
   owner: PedroGraph

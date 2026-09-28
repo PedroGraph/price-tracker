@@ -73,7 +73,10 @@ function createWindow(): void {
       devTools: !app.isPackaged
     }
   })
-  if (!process.argv.includes('--hidden')) win.once('ready-to-show', () => win?.show())
+  // Stay in the tray when started with --hidden (Windows start-up) or after a background update.
+  const relaunchHidden = db.getSetting<boolean>('relaunchHidden', false)
+  if (relaunchHidden) db.setSetting('relaunchHidden', false)
+  if (!process.argv.includes('--hidden') && !relaunchHidden) win.once('ready-to-show', () => win?.show())
 
   // Closing the window keeps the tracker running in the tray.
   win.on('close', (e) => {
@@ -255,10 +258,7 @@ function registerIpc(): void {
   // Copied from the main process: the page itself has no clipboard permission.
   handle('diagnostics:copy', () => clipboard.writeText(diagnosticsReport()))
   handle('update:check', () => checkForUpdates())
-  handle('update:install', () => {
-    quitting = true
-    installUpdate()
-  })
+  handle('update:install', () => installUpdate(false))
 
   events.on('status', (s) => win?.webContents.send('status', { ...s, exchangeRate: cachedRate() }))
 }
@@ -270,6 +270,8 @@ app.whenReady().then(async () => {
   if (app.isPackaged) Menu.setApplicationMenu(null)
   serveRenderer(join(__dirname, '../renderer'))
   db.openDb()
+  // Re-register "start with Windows" so it points at this install (its path changes between versions).
+  if (app.isPackaged && getSettings().launchAtStartup) app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] })
   // Once, before the first check: rewrite old plain-text cookies so they're stored encrypted.
   await reencryptCookies(
     amazonSession(),
@@ -282,10 +284,20 @@ app.whenReady().then(async () => {
   status.exchangeRate = (await refreshRate()) ?? cachedRate()
   void runCheck().finally(schedule)
   syncBot()
-  initUpdater(() => {
-    status.update = { ...update }
-    events.emit('status', { ...status })
-  })
+  initUpdater(
+    () => {
+      status.update = { ...update }
+      events.emit('status', { ...status })
+    },
+    {
+      isIdle: () => !status.running && !(win?.isVisible() ?? false),
+      beforeInstall: (hidden) => {
+        quitting = true
+        db.setSetting('relaunchHidden', hidden)
+        flushAmazonSession()
+      }
+    }
+  )
   // Housekeeping between checks: send alerts held during quiet hours once they end.
   // and send the daily/weekly summary at its hour.
   setInterval(() => {

@@ -189,3 +189,11 @@ export function landedTotal(price: number | null, shipping: number | null, impor
   if (price === null) return null
   return Math.round((price + (shipping ?? 0) + (importFees ?? 0)) * 100) / 100
 }
+
+/** Groups Amazon's offer conditions ("Used - Like New", "Renovado"…) into new, renewed and used. */
+export function conditionGroup(condition: string | null): 'new' | 'renewed' | 'used' {
+  const c = (condition ?? '').toLowerCase()
+  if (/renew|renov|reacond|refurb/.test(c)) return 'renewed'
+  if (/used|usad|collectible|coleccion/.test(c)) return 'used'
+  return 'new'
+}

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { offerUrl, priceWithCoupon, sellerUrl, thresholdInUsd } from '@shared/pricing'
+import { conditionGroup, offerUrl, priceWithCoupon, sellerUrl, thresholdInUsd } from '@shared/pricing'
+import { priceInsights } from '@shared/insights'
 import type { PriceReading, Product, Threshold, TrackerEvent } from '@shared/types'
 import type { Notify } from '../App'
 import { useT } from '../i18n'
@@ -23,6 +24,8 @@ const EVENT_LABEL: Record<TrackerEvent['type'], string> = {
 
 
 const run = (iso: string): string => iso.slice(0, 16)
+
+const CONDITION_LABELS = { new: 'New', renewed: 'Renewed', used: 'Used' } as const
 
 export function ProductDetail({
   product,
@@ -66,6 +69,11 @@ export function ProductDetail({
     return [...byRun.values()].sort((a, b) => a.t - b.t).map((p) => ({ ...p, v: toDisplay(p.usd) }))
   }, [history, toDisplay])
 
+  const insights = useMemo(
+    () => priceInsights(points.map((p) => ({ price: p.usd, at: new Date(p.t).toISOString() }))),
+    [points]
+  )
+
   if (!product) return <p className="muted">{t('This product is no longer tracked.')}</p>
 
   const base = product.basePrice
@@ -97,6 +105,13 @@ export function ProductDetail({
           }
         })
     : []
+  // Cheapest offer per condition (new, renewed, used) in the last sellers check.
+  const byCondition = new Map<string, (typeof offers)[number]>()
+  for (const o of offers) {
+    const group = conditionGroup(o.condition)
+    if (!byCondition.has(group)) byCondition.set(group, o)
+  }
+  const conditions = (['new', 'renewed', 'used'] as const).filter((c) => byCondition.has(c))
 
   const saveThreshold = (next: Threshold): void => {
     setThreshold(next)
@@ -212,6 +227,45 @@ export function ProductDetail({
             <span className="muted">{t('Lowest')} </span>
             {tn('{ever} ever · {last30} in 30 days', { ever: <strong>{fmt(product.lowestPrice)}</strong>, last30: fmt(product.lowest30) })}
           </div>
+        </div>
+
+        <div className="card">
+          <h3>{t('What the history says')}</h3>
+          {insights.spanDays < 7 ? (
+            <p className="sub">{t('Patterns show up after a week of checks ({n} days so far).', { n: insights.spanDays })}</p>
+          ) : (
+            <ul className="insights">
+              {insights.advice === 'wait' && (
+                <li className="warn-text">{t('It drops often and is above its recent low: waiting may pay off.')}</li>
+              )}
+              {insights.advice === 'buy' && <li className="ok-text">{t('It is at its lowest price of the last 60 days.')}</li>}
+              <li>
+                {insights.drops60 === 0
+                  ? t('No drops in the last 60 days.')
+                  : t(insights.drops60 === 1 ? 'Dropped once in 60 days ({pct}% on average).' : 'Dropped {n} times in 60 days ({pct}% on average).', {
+                      n: insights.drops60,
+                      pct: insights.avgDropPct ?? 0
+                    })}
+              </li>
+              {insights.cheapestWeekday !== null && (
+                <li>
+                  {t('Usually cheapest on {day} (about {pct}% under average).', {
+                    day: new Date(2026, 0, 4 + insights.cheapestWeekday).toLocaleDateString(locale, { weekday: 'long' }),
+                    pct: insights.cheapestWeekdayPct ?? 0
+                  })}
+                </li>
+              )}
+              {insights.trend && (
+                <li>
+                  {insights.trend === 'down'
+                    ? t('Trending down over the last 2 weeks.')
+                    : insights.trend === 'up'
+                      ? t('Trending up over the last 2 weeks.')
+                      : t('Steady over the last 2 weeks.')}
+                </li>
+              )}
+            </ul>
+          )}
         </div>
 
         <div className="card">
@@ -444,11 +498,27 @@ export function ProductDetail({
           <div className="row">
             <div style={{ flex: 1 }}>
               <h3>{t('Track other sellers')}</h3>
-              <p className="sub">{t('Follows the cheapest offer for this product among all Amazon sellers.')}</p>
+              <p className="sub">{t('Follows the cheapest offer for this product among all Amazon sellers, and compares new, renewed and used.')}</p>
             </div>
             <Toggle on={product.trackOffers} onChange={(on) => void toggleOffers(on)} label={t('Track other sellers')} />
           </div>
           {product.trackOffers && offers.length === 0 && <p className="explain">{t('Sellers appear after the next check.')}</p>}
+          {conditions.length > 1 && (
+            <div className="conditions">
+              {conditions.map((c) => {
+                const o = byCondition.get(c)!
+                const cheapestNew = byCondition.get('new')?.price ?? null
+                const diff = c !== 'new' && cheapestNew !== null ? o.price! - cheapestNew : null
+                return (
+                  <div key={c} className="condition">
+                    <span className="muted">{t(CONDITION_LABELS[c])}</span>
+                    <strong>{fmt(o.price)}</strong>
+                    {diff !== null && diff < 0 && <small className="ok-text">{t('{amount} less than new', { amount: fmt(-diff) })}</small>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
           {product.trackOffers && offers.length > 0 && (
             <div className="offers">
               {offers.map((o, i) => (

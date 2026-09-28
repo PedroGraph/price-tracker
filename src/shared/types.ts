@@ -36,8 +36,11 @@ export interface Product {
   baseSince: string | null
   /** A back_in_stock event in the last 24 hours. */
   backInStock: boolean
-  /** 'cart' products follow the Amazon cart; 'manual' ones were added by URL and stay until removed. */
-  source: 'cart' | 'manual'
+  /**
+   * Where it comes from: the cart, "Saved for later", a wishlist (these follow Amazon), or
+   * 'manual' (added by link, stays until removed).
+   */
+  source: ProductSource
   /** Alert once when the price drops to this USD amount or below. */
   targetPrice: number | null
   /** Import fees deposit in USD when shipping abroad (e.g. to Colombia). Not part of the tracked price. */
@@ -66,6 +69,8 @@ export interface RunRecord {
   unreadable: number
   alerts: number
 }
+
+export type ProductSource = 'cart' | 'saved' | 'wishlist' | 'manual'
 
 export interface DashboardStats {
   tracked: number
@@ -140,6 +145,10 @@ export interface Settings {
   language: 'en' | 'es'
   /** Alerts are held (like quiet hours) until this time; set by /pausar. */
   pausedUntil: string | null
+  /** Also track the cart's "Saved for later" items. */
+  trackSavedForLater: boolean
+  /** Amazon wishlist links whose items are tracked. */
+  wishlists: string[]
 }
 
 export interface UpdateState {

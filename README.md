@@ -18,6 +18,7 @@ A Windows desktop app (Electron + React + TypeScript) that watches the prices of
 - **Backup and restore** everything (products, full history, settings) in one file. Keys can be included, and then the file is always encrypted with your password (AES-256-GCM, scrypt). The Amazon session is never included.
 - **Diagnostics:** the latest checks and a copyable report without personal data.
 - **Export** any product's price history, or all of it, to CSV.
+- **"Saved for later" and wishlists:** optionally track the cart's "Saved for later" items and any of your wishlists (paste the list's link); items leave tracking when you remove them on Amazon.
 - **Track products outside your cart** by pasting a product link (including `amzn.to` links) or an ASIN.
 
 ## How alerts work

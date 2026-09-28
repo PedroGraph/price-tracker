@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import { app } from 'electron'
 import { join } from 'node:path'
-import type { RunRecord, DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent } from '@shared/types'
+import type { ProductSource, RunRecord, DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent } from '@shared/types'
 
 let db: DatabaseSync
 
@@ -232,18 +232,39 @@ export function getProduct(asin: string): Product | null {
 }
 
 /** Makes the product list match the cart: new items are added, missing ones stop being tracked. */
-export function syncCart(items: { asin: string; title: string; url: string; image: string | null }[]): void {
+const SOURCE_RANK: Record<ProductSource, number> = { cart: 0, saved: 1, wishlist: 2, manual: 3 }
+
+/**
+ * Makes tracked products match what's on Amazon: items found in the cart, "Saved for later"
+ * and wishlists are added (an item in several places takes the first of cart > saved >
+ * wishlist), and products that were only there stop being tracked. Sources in `keep` weren't
+ * read this time (off, or couldn't be loaded), so their products are left as they are.
+ * Products added by link ('manual') are never touched.
+ */
+export function syncSources(
+  items: { asin: string; title: string; url: string; image: string | null; source: Exclude<ProductSource, 'manual'> }[],
+  keep: Exclude<ProductSource, 'manual'>[] = []
+): void {
+  const best = new Map<string, (typeof items)[number]>()
+  for (const i of items) {
+    const prev = best.get(i.asin)
+    if (!prev || SOURCE_RANK[i.source] < SOURCE_RANK[prev.source]) best.set(i.asin, i)
+  }
   transaction(() => {
     const upsert = db.prepare(
-      `INSERT INTO products (asin, title, url, image, active, added_at) VALUES (@asin, @title, @url, @image, 1, @now)
-       ON CONFLICT(asin) DO UPDATE SET title = @title, url = @url, image = CASE WHEN @image IS NULL THEN image ELSE @image END, active = 1`
+      `INSERT INTO products (asin, title, url, image, active, source, added_at) VALUES (@asin, @title, @url, @image, 1, @source, @now)
+       ON CONFLICT(asin) DO UPDATE SET title = CASE WHEN @title = @asin THEN title ELSE @title END, url = @url,
+         image = CASE WHEN @image IS NULL THEN image ELSE @image END, active = 1,
+         source = CASE WHEN source = 'manual' AND active = 1 THEN 'manual' ELSE @source END`
     )
-    for (const { asin, title, url, image } of items) upsert.run({ asin, title, url, image, now: now() })
-    // Only cart products leave with the cart; products added by URL stay until removed.
-    const asins = items.map((i) => i.asin)
+    for (const { asin, title, url, image, source } of best.values()) upsert.run({ asin, title, url, image, source, now: now() })
+    const asins = [...best.keys()]
+    const managed = (['cart', 'saved', 'wishlist'] as const).filter((s) => !keep.includes(s))
+    if (managed.length === 0) return
     db.prepare(
-      `UPDATE products SET active = 0 WHERE source = 'cart' AND asin NOT IN (${asins.map(() => '?').join(',') || "''"})`
-    ).run(...asins)
+      `UPDATE products SET active = 0 WHERE source IN (${managed.map(() => '?').join(',')})
+       AND asin NOT IN (${asins.map(() => '?').join(',') || "''"})`
+    ).run(...managed, ...asins)
   })
 }
 

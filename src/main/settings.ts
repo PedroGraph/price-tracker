@@ -21,7 +21,9 @@ const DEFAULTS: Omit<Settings, Derived | 'language'> = {
   quietEnd: 7,
   digest: 'off',
   digestHour: 8,
-  pausedUntil: null
+  pausedUntil: null,
+  trackSavedForLater: false,
+  wishlists: []
 }
 
 const OLD_DEFAULT_FROM = 'Amazon Price Tracker <onboarding@resend.dev>'

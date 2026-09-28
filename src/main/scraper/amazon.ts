@@ -2,7 +2,8 @@ import { app, BrowserWindow, session } from 'electron'
 import { keepOnAmazon } from '../security'
 import { parsePrice } from '@shared/pricing'
 import type { SessionState } from '@shared/types'
-import { extractCart, extractOffers, extractProduct, isUnavailable, type PageFlags } from './extractors'
+import { wishlistId } from '@shared/urls'
+import { extractCart, extractOffers, extractProduct, extractWishlist, isUnavailable, type PageFlags } from './extractors'
 
 const PARTITION = 'persist:amazon'
 const BASE = 'https://www.amazon.com'
@@ -87,6 +88,22 @@ export class Scraper {
     const { items, cartFound } = await this.run(`${BASE}/gp/cart/view.html`, extractCart)
     if (!cartFound) throw new PageChangedError('Cart page: the cart container was not found')
     return items.map((i) => ({ ...i, price: parsePrice(i.priceText, copPerUsd) }))
+  }
+
+  /** Every item of a wishlist; scrolls to make Amazon load long lists. */
+  async wishlist(url: string) {
+    const id = wishlistId(url)
+    if (!id) throw new PageChangedError(`Not a wishlist link: ${url}`)
+    let page = await this.run(`${BASE}/hz/wishlist/ls/${id}`, extractWishlist, false)
+    if (!page.found) throw new PageChangedError(`Wishlist ${id}: the list wasn't found (private or removed?)`)
+    for (let i = 0; i < 15 && !page.complete; i++) {
+      const before = page.items.length
+      await this.win.webContents.executeJavaScript('window.scrollTo(0, document.body.scrollHeight)')
+      await sleep(1500)
+      page = (await this.win.webContents.executeJavaScript(`(${extractWishlist.toString()})()`)) as typeof page
+      if (page.items.length === before) break
+    }
+    return page.items.map((i) => ({ ...i, url: `${BASE}/dp/${i.asin}` }))
   }
 
   async product(asin: string, copPerUsd: number | null) {

@@ -69,7 +69,7 @@ async function sendEmail(alerts: Alert[], rate: number | null): Promise<void> {
     image: a.product.image,
     seller: a.seller,
     url: offerUrl(a.product.asin, a.sellerId),
-    inCart: a.product.source === 'cart',
+    inCart: a.product.source === 'cart' || a.product.source === 'saved',
     // Stock alerts show the current price only; the others compare with the base.
     oldPrice: a.type === 'price_up' || a.type === 'price_down' ? a.oldPrice : null,
     newPrice: a.type === 'out_of_stock' ? null : a.newPrice,

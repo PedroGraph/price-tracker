@@ -10,6 +10,8 @@ export interface PageFlags {
 }
 
 export interface RawCartItem {
+  /** 'cart' for the active cart, 'saved' for "Saved for later". */
+  section: 'cart' | 'saved'
   asin: string
   title: string
   url: string
@@ -60,25 +62,28 @@ export function extractCart(): PageFlags & { items: RawCartItem[]; cartFound: bo
   const loggedOut = !account || /\/ap\/signin/.test(accountHref) || /sign in|identif/i.test(accountText ?? '')
   const seen = new Set<string>()
   const items: RawCartItem[] = []
-  const rows = document.querySelectorAll(
-    '#sc-active-cart div[data-asin][data-itemtype="active"], #sc-active-cart div.sc-list-item[data-asin]'
-  )
-  rows.forEach((row) => {
-    const asin = row.getAttribute('data-asin')
-    if (!asin || seen.has(asin)) return
-    seen.add(asin)
-    const dataPrice = row.getAttribute('data-price')
-    items.push({
-      asin,
-      title:
-        text(row.querySelector('.sc-product-title .a-truncate-full')) ??
-        text(row.querySelector('.sc-product-title')) ??
+  const collect = (selector: string, section: 'cart' | 'saved'): void => {
+    document.querySelectorAll(selector).forEach((row) => {
+      const asin = row.getAttribute('data-asin')
+      if (!asin || !/^[A-Z0-9]{10}$/.test(asin) || seen.has(asin)) return
+      seen.add(asin)
+      const dataPrice = row.getAttribute('data-price')
+      items.push({
+        section,
         asin,
-      url: `https://www.amazon.com/dp/${asin}`,
-      image: realImage(row.querySelector('img.sc-product-image, img')),
-      priceText: dataPrice ? `$${dataPrice}` : text(row.querySelector('.sc-product-price, .apex-price-to-pay-value'))
+        title:
+          text(row.querySelector('.sc-product-title .a-truncate-full')) ??
+          text(row.querySelector('.sc-product-title')) ??
+          asin,
+        url: `https://www.amazon.com/dp/${asin}`,
+        image: realImage(row.querySelector('img.sc-product-image, img')),
+        priceText: dataPrice ? `$${dataPrice}` : text(row.querySelector('.sc-product-price, .apex-price-to-pay-value'))
+      })
     })
-  })
+  }
+  // The cart first, so an item in both counts as a cart item.
+  collect('#sc-active-cart div[data-asin][data-itemtype="active"], #sc-active-cart div.sc-list-item[data-asin]', 'cart')
+  collect('#sc-saved-cart div[data-asin]', 'saved')
   // Without the cart container we can't tell "empty cart" from "page changed".
   const cartFound = !!document.querySelector('#sc-active-cart, #sc-empty-cart, .sc-your-amazon-cart-is-empty')
   return { loggedOut, captcha, items, cartFound }
@@ -181,4 +186,39 @@ export function isUnavailable(availabilityText: string | null): boolean {
   return /currently unavailable|out of stock|cannot be shipped|can't be shipped|no disponible|agotado|sin existencias|no puede enviarse/i.test(
     availabilityText ?? ''
   )
+}
+
+export interface RawWishlist extends PageFlags {
+  found: boolean
+  /** True once Amazon shows the end-of-list marker (every item is loaded). */
+  complete: boolean
+  items: { asin: string; title: string; image: string | null }[]
+}
+
+/** Items of a wishlist page. Runs in the page; call again after scrolling to get more. */
+export function extractWishlist(): RawWishlist {
+  const text = (el: Element | null | undefined): string | null => el?.textContent?.replace(/\s+/g, ' ').trim() || null
+  const seen = new Set<string>()
+  const items: RawWishlist['items'] = []
+  document.querySelectorAll('#g-items li[data-itemid], #g-items li').forEach((li) => {
+    // The ASIN is in the item's JSON params ("ASIN:B0...|...") or in its product link.
+    const params = li.getAttribute('data-reposition-action-params') ?? ''
+    const link = li.querySelector('a[href*="/dp/"]')?.getAttribute('href') ?? ''
+    const asin = params.match(/ASIN:([A-Z0-9]{10})/)?.[1] ?? link.match(/\/dp\/([A-Z0-9]{10})/)?.[1]
+    if (!asin || seen.has(asin)) return
+    seen.add(asin)
+    const name = li.querySelector('a[id^="itemName_"]')
+    items.push({
+      asin,
+      title: name?.getAttribute('title') || text(name) || asin,
+      image: (li.querySelector('img') as HTMLImageElement | null)?.getAttribute('src') ?? null
+    })
+  })
+  return {
+    captcha: !!document.querySelector('form[action*="validateCaptcha"]'),
+    loggedOut: false,
+    found: !!document.querySelector('#g-items, #wishlist-page'),
+    complete: !!document.querySelector('#endOfListMarker'),
+    items
+  }
 }

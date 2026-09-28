@@ -196,6 +196,8 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
           {p.coupon && <span className="badge good">{t('Coupon')}</span>}
           {p.sellerCount > 1 && <span className="badge">{t('{n} sellers', { n: p.sellerCount })}</span>}
           {p.source === 'manual' && <span className="badge">{t('Not in cart')}</span>}
+          {p.source === 'saved' && <span className="badge">{t('Saved for later')}</span>}
+          {p.source === 'wishlist' && <span className="badge">{t('Wishlist')}</span>}
         </div>
       </div>
       <div className="priceline">

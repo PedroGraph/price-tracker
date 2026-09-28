@@ -184,6 +184,21 @@ const ES: Record<string, string> = {
   'Restore backup': 'Restaurar copia',
   'Backup restored. Reloading…': 'Copia restaurada. Recargando…',
   'Current prices': 'Precios actuales',
+  'What to track': 'Qué rastrear',
+  'Your Amazon cart is always tracked. Add more places:': 'Tu carrito de Amazon siempre se rastrea. Agrega más lugares:',
+  'Saved for later': 'Guardado para más tarde',
+  'The items under your cart. Moving something back to the cart keeps its history.':
+    'Los productos debajo de tu carrito. Si pasas algo de vuelta al carrito, conserva su historial.',
+  Wishlists: 'Listas de deseos',
+  Wishlist: 'Lista de deseos',
+  'Paste the link of a list (Amazon → Lists → your list → Share → Copy link). Everything on it is tracked, and items you remove from it stop being tracked.':
+    'Pega el link de una lista (Amazon → Listas → tu lista → Compartir → Copiar link). Todo lo que tenga se rastrea, y lo que quites de ella deja de rastrearse.',
+  Open: 'Abrir',
+  Add: 'Agregar',
+  "That isn't an Amazon wishlist link.": 'Eso no es un link de una lista de deseos de Amazon.',
+  'That list is already added.': 'Esa lista ya está agregada.',
+  'Private lists work too: the app reads them with your Amazon session.':
+    'Las listas privadas también funcionan: la app las lee con tu sesión de Amazon.',
   'Track a product: /agregar <link>': 'Rastrear un producto: /agregar <link>',
   'Track a product': 'Rastrear un producto',
   'Check prices now': 'Revisar precios ahora',

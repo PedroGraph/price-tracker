@@ -6,6 +6,7 @@ import { useT } from '../i18n'
 import { useMoney } from '../money'
 import { Segmented, Toggle } from '../ui'
 import { Backup } from './Backup'
+import { Sources } from './Sources'
 import { Diagnostics } from './Diagnostics'
 import { UNITS } from './ProductDetail'
 
@@ -174,6 +175,8 @@ export function SettingsView({
           </button>
         </div>
       </section>
+
+      <Sources draft={draft} save={save} />
 
       <section className="card">
         <h3>{t('Email alerts')}</h3>

@@ -88,12 +88,31 @@ async function track(): Promise<RunOutcome> {
   const scraper = new Scraper()
   const alerts: Alert[] = []
   const unreadable: string[] = []
+  const wishlistErrors: string[] = []
   let checked = 0
 
   try {
     const cart = await scraper.cart(rate)
     status.session = 'logged_in'
-    db.syncCart(cart)
+    type Item = Parameters<typeof db.syncSources>[0][number]
+    const found: Item[] = cart
+      .filter((i) => i.section === 'cart' || settings.trackSavedForLater)
+      .map((i) => ({ ...i, source: i.section }))
+    const keep: Parameters<typeof db.syncSources>[1] = settings.trackSavedForLater ? [] : ['saved']
+    let wishlistsOk = true
+    for (const url of settings.wishlists) {
+      try {
+        await scraper.pause()
+        for (const i of await scraper.wishlist(url)) found.push({ ...i, source: 'wishlist' })
+      } catch (e) {
+        if (e instanceof SessionError) throw e
+        // A list we can't read this time: leave its products alone rather than dropping them.
+        wishlistsOk = false
+        wishlistErrors.push(e instanceof Error ? e.message : String(e))
+      }
+    }
+    if (!wishlistsOk) keep.push('wishlist')
+    db.syncSources(found, keep)
     emit()
 
     for (const product of db.listProducts(true)) {
@@ -187,5 +206,6 @@ async function track(): Promise<RunOutcome> {
   if (checked > 0 && unreadable.length === checked) {
     return { kind: 'broken', reason: `Product pages: no price or availability found (${unreadable.join(', ')})` }
   }
+  if (wishlistErrors.length) return { kind: 'error', message: wishlistErrors.join(' · ') }
   return { kind: 'ok' }
 }

@@ -16,6 +16,14 @@ export function isAmazonUrl(url: string): boolean {
   return !!u && u.protocol === 'https:' && isHost(u.hostname, 'amazon.com')
 }
 
+/** An Amazon wishlist link (…/hz/wishlist/ls/ID or the older registry path). */
+export function wishlistId(url: string): string | null {
+  const u = parse(url.trim())
+  if (!u || !isAmazonUrl(u.toString())) return null
+  const m = u.pathname.match(/\/(?:hz\/wishlist\/ls|gp\/registry\/wishlist)\/([A-Z0-9]{8,16})/i)
+  return m ? m[1].toUpperCase() : null
+}
+
 /** Sites the app is allowed to open in the user's browser. Anything else is ignored. */
 const EXTERNAL = ['amazon.com', 'github.com', 'resend.com', 't.me', 'telegram.org']
 

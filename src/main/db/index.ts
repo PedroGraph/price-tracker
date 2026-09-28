@@ -1,7 +1,8 @@
 import { DatabaseSync } from 'node:sqlite'
 import { app } from 'electron'
 import { join } from 'node:path'
-import type { ProductSource, RunRecord, DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent, AlertItem } from '@shared/types'
+import type { ProductSource, RunRecord, DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent, AlertItem, ProductStats } from '@shared/types'
+import { volatility } from '@shared/insights'
 
 let db: DatabaseSync
 
@@ -553,4 +554,38 @@ export function cleanTags(tags: unknown): string[] {
     if (tag && !out.some((o) => o.toLowerCase() === tag.toLowerCase())) out.push(tag)
   }
   return out.slice(0, 10)
+}
+
+/** Tracked prices (Amazon's own, one per check) of a product, oldest first. */
+export function priceSeries(asin: string): { at: string; price: number }[] {
+  return db
+    .prepare(`SELECT checked_at AS at, price FROM price_history WHERE asin = ? AND source = 'buybox' AND price IS NOT NULL ORDER BY checked_at`)
+    .all(asin) as { at: string; price: number }[]
+}
+
+/** Numbers for the statistics page, for every active product. */
+export function productStats(): ProductStats[] {
+  const drops = db
+    .prepare(`SELECT asin, COUNT(*) AS n, SUM(old_price - new_price) AS total FROM events
+              WHERE type = 'price_down' AND old_price IS NOT NULL AND new_price IS NOT NULL GROUP BY asin`)
+    .all() as { asin: string; n: number; total: number }[]
+  return listProducts(true).map((p) => {
+    const series = priceSeries(p.asin)
+    const low = series.reduce<{ at: string; price: number } | null>((m, r) => (m === null || r.price < m.price ? r : m), null)
+    const d = drops.find((x) => x.asin === p.asin)
+    return {
+      asin: p.asin,
+      title: p.title,
+      image: p.image,
+      source: p.source,
+      current: p.lastPrice,
+      first: series[0]?.price ?? null,
+      lowest: low?.price ?? null,
+      lowestAt: low?.at ?? null,
+      highest: series.length ? Math.max(...series.map((r) => r.price)) : null,
+      volatility: volatility(series.map((r) => r.price)),
+      drops: d?.n ?? 0,
+      droppedTotal: Math.round((d?.total ?? 0) * 100) / 100
+    }
+  })
 }

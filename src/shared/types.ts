@@ -167,6 +167,24 @@ export interface SaleOutlook {
   likely: { asin: string; title: string; image: string | null; price: number | null; drops: number; volatility: number }[]
 }
 
+/** One product's numbers for the statistics page. */
+export interface ProductStats {
+  asin: string
+  title: string
+  image: string | null
+  source: ProductSource
+  current: number | null
+  first: number | null
+  lowest: number | null
+  lowestAt: string | null
+  highest: number | null
+  /** Standard deviation over the mean, in percent. */
+  volatility: number
+  drops: number
+  /** Sum of every price drop alert, in USD. */
+  droppedTotal: number
+}
+
 export interface ExchangeRate {
   /** COP per 1 USD. */
   rate: number

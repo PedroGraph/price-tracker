@@ -247,6 +247,12 @@ function registerIpc(): void {
   handle('notifications:list', () => ({ alerts: db.listRecentAlerts(), seenAt: db.getSetting<string | null>('alertsSeenAt', null) }))
   handle('notifications:seen', () => db.setSetting('alertsSeenAt', new Date().toISOString()))
   handle('sales:outlook', () => saleOutlook())
+  handle('stats:products', () => db.productStats())
+  handle('stats:series', (_e, asins: unknown) =>
+    Array.isArray(asins)
+      ? asins.filter((a): a is string => typeof a === 'string').slice(0, 5).map((asin) => ({ asin, points: db.priceSeries(asin) }))
+      : []
+  )
   handle('suggestions:list', () => listSuggestions())
   handle('suggestions:dismiss', (_e, asin: unknown) => {
     if (typeof asin === 'string' && /^[A-Z0-9]{10}$/.test(asin)) dismissSuggestion(asin)

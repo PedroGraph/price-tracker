@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Notifications } from './Notifications'
-import { ChevronLeft, Moon, RefreshCw, Settings as Gear, Sun, TrendingUp } from 'lucide-react'
+import { ChartColumn, ChevronLeft, Moon, RefreshCw, Settings as Gear, Sun, TrendingUp } from 'lucide-react'
 import type { DashboardStats, Product, Settings, Status } from '@shared/types'
 import { LangContext, useT } from './i18n'
 import { MoneyContext, type DisplayCurrency } from './money'
@@ -8,9 +8,10 @@ import { timeAgo, timeUntil } from './ui'
 import { Dashboard } from './views/Dashboard'
 // Loaded when first opened, so the dashboard shows up without the chart and settings code.
 const ProductDetail = lazy(() => import('./views/ProductDetail').then((m) => ({ default: m.ProductDetail })))
+const StatsView = lazy(() => import('./views/Stats').then((m) => ({ default: m.StatsView })))
 const SettingsView = lazy(() => import('./views/Settings').then((m) => ({ default: m.SettingsView })))
 
-type View = { name: 'dashboard' } | { name: 'product'; asin: string } | { name: 'settings' }
+type View = { name: 'dashboard' } | { name: 'product'; asin: string } | { name: 'settings' } | { name: 'stats' }
 type Theme = 'light' | 'dark'
 export type Notify = (text: string, error?: boolean) => void
 
@@ -148,6 +149,9 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
                 }
               }}
             />
+            <button className="icon-btn" onClick={() => setView({ name: 'stats' })} aria-label={t('Statistics')} title={t('Statistics')}>
+              <ChartColumn size={18} />
+            </button>
             {themeButton}
             <button className="icon-btn" onClick={() => setView({ name: 'settings' })} aria-label={t('Settings')}>
               <Gear size={18} />
@@ -156,8 +160,8 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
         ) : (
           <>
             {back}
-            <span className={view.name === 'settings' ? 'crumb strong' : 'crumb'}>
-              {view.name === 'settings' ? t('Settings') : t('Product details')}
+            <span className={view.name === 'product' ? 'crumb' : 'crumb strong'}>
+              {view.name === 'settings' ? t('Settings') : view.name === 'stats' ? t('Statistics') : t('Product details')}
             </span>
             <div className="spacer" />
             {themeButton}
@@ -215,6 +219,7 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
             }}
           />
         )}
+        {view.name === 'stats' && <StatsView products={products} onOpen={(asin) => setView({ name: 'product', asin })} />}
         {view.name === 'settings' && settings && (
           <SettingsView settings={settings} status={status} onSaved={setSettings} notify={notify} />
         )}

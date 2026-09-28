@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { BackupInfo } from '../main/backup'
-import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Suggestion, AlertItem, SaleOutlook, Status, Threshold, TrackerEvent } from '@shared/types'
+import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Suggestion, AlertItem, SaleOutlook, ProductStats, Status, Threshold, TrackerEvent } from '@shared/types'
 
 /** The only surface the UI can reach. Each method maps to one IPC channel. */
 const api = {
@@ -32,6 +32,9 @@ const api = {
   openOnAmazon: (asin: string): Promise<void> => ipcRenderer.invoke('amazon:product', asin),
   listSuggestions: (): Promise<Suggestion[]> => ipcRenderer.invoke('suggestions:list'),
   saleOutlook: (): Promise<SaleOutlook | null> => ipcRenderer.invoke('sales:outlook'),
+  productStats: (): Promise<ProductStats[]> => ipcRenderer.invoke('stats:products'),
+  priceSeries: (asins: string[]): Promise<{ asin: string; points: { at: string; price: number }[] }[]> =>
+    ipcRenderer.invoke('stats:series', asins),
   listAlerts: (): Promise<{ alerts: AlertItem[]; seenAt: string | null }> => ipcRenderer.invoke('notifications:list'),
   markAlertsSeen: (): Promise<void> => ipcRenderer.invoke('notifications:seen'),
   /** A Windows notification was clicked: open that product. */

@@ -293,7 +293,7 @@ code { font-family: var(--mono); font-size: 0.92em; }
 .group-title { display: flex; align-items: center; gap: 10px; margin: 26px 0 12px; font-size: 15px; font-weight: 600; }
 .group:first-of-type .group-title { margin-top: 8px; }
 .group-title .count { color: var(--muted); font-weight: 500; }
-.amazon-search { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 22px 0 6px; flex-wrap: wrap; }
+.amazon-hint { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 22px 0 6px; font-size: 14px; }
 .searching { display: flex; align-items: center; gap: 8px; }
 .result-list { padding: 0; overflow: hidden; }
 .result { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 18px; padding: 14px 20px; border-top: 1px solid var(--line); }
@@ -306,3 +306,19 @@ code { font-family: var(--mono); font-size: 0.92em; }
 .result .actions { display: flex; align-items: center; gap: 8px; }
 .result .tracked { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: 14px; font-weight: 600; padding: 0 10px; }
 @media (max-width: 640px) { .result { grid-template-columns: auto 1fr; } .result .price, .result .actions { grid-column: 2; } }
+.search-filters { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; padding: 16px 20px; }
+.filter-row { display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap; }
+.filter-title { min-width: 130px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.filter-row .chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+.filter-row .chip { font-size: 13px; padding: 5px 12px; display: inline-flex; align-items: center; gap: 4px; }
+.search-filters .field { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.search-filters select, .price-range input { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font: inherit; font-size: 13px; }
+.price-range input { width: 90px; }
+.result-list.loading { opacity: .55; pointer-events: none; transition: opacity .2s; }
+.search .clear { display: inline-flex; background: none; border: 0; padding: 2px; color: var(--muted); cursor: pointer; border-radius: 6px; }
+.search .clear:hover { color: var(--text); }
+.tabs { display: flex; gap: 4px; margin: 4px 0 14px; border-bottom: 1px solid var(--line); }
+.tab { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px 14px; font: inherit; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.tab:hover { color: var(--text); }
+.tab.on { color: var(--text); border-bottom-color: var(--teal); }
+.tab .count { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--line); border-radius: 999px; padding: 1px 8px; }

@@ -234,7 +234,19 @@ export interface RawSearchResult {
 }
 
 /** Results of an Amazon search page (/s?k=…). */
-export function extractSearch(): PageFlags & { results: RawSearchResult[]; found: boolean } {
+export interface RawSearchFilter {
+  title: string
+  /** `rh` is the whole filter state after clicking the option (Amazon toggles it). */
+  options: { label: string; rh: string; selected: boolean }[]
+}
+
+export function extractSearch(): PageFlags & {
+  results: RawSearchResult[]
+  found: boolean
+  filters: RawSearchFilter[]
+  sorts: { value: string; label: string }[]
+  sort: string | null
+} {
   const text = (el: Element | null | undefined): string | null => el?.textContent?.replace(/\s+/g, ' ').trim() || null
   const captcha = !!document.querySelector('form[action*="validateCaptcha"]')
   const results: RawSearchResult[] = []
@@ -256,7 +268,34 @@ export function extractSearch(): PageFlags & { results: RawSearchResult[]; found
       sponsored: !!row.querySelector('.puis-sponsored-label-text, .s-sponsored-label-text, [aria-label*="Sponsored"], [aria-label*="Patrocinado"]')
     })
   })
+  // Sidebar refinements: each group is an element with a heading and links carrying `rh`.
+  const filters: RawSearchFilter[] = []
+  document.querySelectorAll('#s-refinements [id]').forEach((group) => {
+    if (group.id.includes('/') || group.id.endsWith('-title')) return
+    const title = text(group.querySelector('.a-text-bold, [role="heading"], h2'))
+    if (!title) return
+    const options: RawSearchFilter['options'] = []
+    group.querySelectorAll('a[href*="rh="], a[href*="/s?"]').forEach((a) => {
+      const href = a.getAttribute('href') ?? ''
+      if (/ref=sr_ex_/.test(href)) return // "Clear" links: unselecting an option does the same
+      const rh = new URL(href, location.origin).searchParams.get('rh') ?? ''
+      // Rating options are a star icon plus "& up": "4★ & up".
+      const stars = /a-star-(?:medium|small|mini)-(\d)/.exec(a.querySelector('i[class*="a-star"]')?.className ?? '')?.[1]
+      const label =
+        (stars ? `${stars}★ ${text(a.querySelector('.a-size-small, .a-color-base')) ?? ''}` : null) ??
+        text(a.querySelector('.a-size-base, .a-color-base')) ??
+        a.getAttribute('title') ??
+        a.querySelector('img')?.getAttribute('alt') ??
+        text(a)
+      if (!label || options.some((o) => o.label === label)) return
+      const selected = a.getAttribute('aria-current') === 'true' || !!a.querySelector('input[type="checkbox"]:checked')
+      options.push({ label: label.replace(/\s+/g, ' ').trim(), rh, selected })
+    })
+    if (options.length > 0 && !filters.some((f) => f.title === title)) filters.push({ title, options })
+  })
+  const sortSelect = document.querySelector<HTMLSelectElement>('#s-result-sort-select')
+  const sorts = sortSelect ? [...sortSelect.options].map((o) => ({ value: o.value, label: text(o) ?? o.value })) : []
   // The search page renders its result grid even with zero matches.
   const found = !!document.querySelector('.s-main-slot, .s-result-list')
-  return { loggedOut: false, captcha, results, found }
+  return { loggedOut: false, captcha, results, found, filters, sorts, sort: sortSelect?.value ?? null }
 }

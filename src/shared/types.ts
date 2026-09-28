@@ -81,6 +81,28 @@ export interface SearchResult {
   sponsored: boolean
 }
 
+export interface SearchParams {
+  query: string
+  /** Amazon's refinement state, as found in the filter links. */
+  rh?: string
+  sort?: string
+  /** Price range in USD. */
+  minPrice?: number | null
+  maxPrice?: number | null
+}
+
+export interface SearchFilter {
+  title: string
+  options: { label: string; rh: string; selected: boolean }[]
+}
+
+export interface SearchPage {
+  results: SearchResult[]
+  filters: SearchFilter[]
+  sorts: { value: string; label: string }[]
+  sort: string | null
+}
+
 export type ProductSource = 'cart' | 'saved' | 'wishlist' | 'manual'
 
 export interface DashboardStats {

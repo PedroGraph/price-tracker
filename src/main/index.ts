@@ -3,7 +3,8 @@ import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { toCsv } from '@shared/csv'
-import type { Settings, Threshold } from '@shared/types'
+import type { SearchParams, Settings, Threshold } from '@shared/types'
+import { searchUrl } from '@shared/urls'
 import * as db from './db'
 import { maybeSendDigest } from './digest'
 import { diagnosticsReport } from './diagnostics'
@@ -225,11 +226,12 @@ function registerIpc(): void {
     void runCheck()
   })
   // Search runs in its own hidden window, so it works while a check is running.
-  handle('amazon:search', async (_e, query: unknown) => {
-    if (typeof query !== 'string' || !query.trim() || query.length > 200) throw new Error('Invalid search.')
+  handle('amazon:search', async (_e, params: SearchParams) => {
+    const url = params && typeof params === 'object' ? searchUrl(params) : null
+    if (!url) throw new Error('Invalid search.')
     const scraper = new Scraper()
     try {
-      return await scraper.search(query.trim(), currentRate())
+      return await scraper.search(url, currentRate())
     } finally {
       scraper.close()
     }

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, session } from 'electron'
 import { keepOnAmazon } from '../security'
 import { parsePrice } from '@shared/pricing'
-import type { SessionState } from '@shared/types'
+import type { SearchPage, SessionState } from '@shared/types'
 import { wishlistId } from '@shared/urls'
 import { extractCart, extractOffers, extractProduct, extractSearch, extractWishlist, isUnavailable, type PageFlags } from './extractors'
 
@@ -109,10 +109,10 @@ export class Scraper {
     return page.items.map((i) => ({ ...i, url: `${BASE}/dp/${i.asin}` }))
   }
 
-  async search(query: string, copPerUsd: number | null) {
-    const page = await this.run(`${BASE}/s?k=${encodeURIComponent(query)}`, extractSearch, false)
-    if (!page.found) throw new PageChangedError('Search page: the results list was not found')
-    return page.results.map(({ priceText, ...r }) => ({ ...r, price: parsePrice(priceText, copPerUsd) }))
+  async search(url: string, copPerUsd: number | null): Promise<SearchPage> {
+    const { results, found, filters, sorts, sort } = await this.run(url, extractSearch, false)
+    if (!found) throw new PageChangedError('Search page: the results list was not found')
+    return { results: results.map(({ priceText, ...r }) => ({ ...r, price: parsePrice(priceText, copPerUsd) })), filters, sorts, sort }
   }
 
   async product(asin: string, copPerUsd: number | null) {

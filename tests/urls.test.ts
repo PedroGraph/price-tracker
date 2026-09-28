@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isAllowedExternal, isAmazonUrl } from '../src/shared/urls'
+import { isAllowedExternal, isAmazonUrl, searchUrl } from '../src/shared/urls'
 
 describe('isAmazonUrl', () => {
   it('accepts amazon.com and its subdomains over https', () => {
@@ -26,5 +26,21 @@ describe('isAllowedExternal', () => {
     expect(isAllowedExternal('https://phishing.example/amazon.com')).toBe(false)
     expect(isAllowedExternal('ms-settings:privacy')).toBe(false)
     expect(isAllowedExternal('file:///C:/Users')).toBe(false)
+  })
+})
+
+describe('searchUrl', () => {
+  it('builds the search with filters, sort and a USD price range', () => {
+    const url = new URL(searchUrl({ query: ' ps5 ', rh: 'p_123:110955,p_36:100-200', sort: 'price-asc-rank', minPrice: 100, maxPrice: 300.5 })!)
+    expect(url.origin + url.pathname).toBe('https://www.amazon.com/s')
+    expect(url.searchParams.get('k')).toBe('ps5')
+    expect(url.searchParams.get('rh')).toBe('p_123:110955,p_36:10000-30050')
+    expect(url.searchParams.get('s')).toBe('price-asc-rank')
+  })
+
+  it('rejects odd input', () => {
+    expect(searchUrl({ query: '' })).toBeNull()
+    expect(searchUrl({ query: 'x', rh: 'a&b=c' })).toBeNull()
+    expect(searchUrl({ query: 'x', sort: '../evil' })).toBeNull()
   })
 })

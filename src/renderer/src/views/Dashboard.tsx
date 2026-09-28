@@ -1,14 +1,33 @@
 import { useMemo, useState } from 'react'
-import { Check, ChevronRight, ExternalLink, Loader2, Plus, Search, ShoppingCart, Star } from 'lucide-react'
+import { Check, ChevronRight, ExternalLink, Loader2, Plus, Search, ShoppingCart, Star, X } from 'lucide-react'
 import type { Notify } from '../App'
-import type { DashboardStats, Product, SearchResult, Status } from '@shared/types'
+import type { DashboardStats, Product, ProductSource, SearchPage, SearchParams, Status } from '@shared/types'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
 import { BuySignal, ChangePill, Sparkline, Thumb, timeAgo } from '../ui'
 
 type Filter = 'all' | 'down' | 'up' | 'out'
 
-const errorText = (e: unknown): string =>
+type Tab = 'all' | ProductSource | 'amazon'
+
+// Where each product comes from, in display order. Labels are English keys.
+const TABS: ('all' | ProductSource)[] = ['all', 'cart', 'saved', 'wishlist', 'manual']
+const TAB_LABELS: Record<'all' | ProductSource, string> = {
+  all: 'All',
+  cart: 'In your cart',
+  saved: 'Saved for later',
+  wishlist: 'Wishlists',
+  manual: 'Outside the cart'
+}
+
+interface AmazonSearch {
+  params: SearchParams
+  page: SearchPage | null
+  loading: boolean
+  error?: string
+}
+
+const errorText =(e: unknown): string =>
   e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
 
 const movement =(p: Product): number | null =>
@@ -41,7 +60,10 @@ export function Dashboard({
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState(false)
   const [link, setLink] = useState('')
-  const [amazon, setAmazon] = useState<{ query: string; results: SearchResult[] | null; error?: string } | null>(null)
+  const [amazon, setAmazon] = useState<AmazonSearch | null>(null)
+  // With an Amazon search open, the page switches between it and your own list.
+  const [tab, setTab] = useState<Tab>('all')
+  const showAmazon = amazon !== null && tab === 'amazon'
 
   const add = async (input = link): Promise<void> => {
     try {
@@ -56,15 +78,16 @@ export function Dashboard({
     }
   }
 
-  const searchAmazon = async (): Promise<void> => {
-    const q = query.trim()
-    if (!q) return
-    setAmazon({ query: q, results: null })
+  const searchAmazon = async (params: SearchParams): Promise<void> => {
+    if (!params.query.trim()) return
+    setTab('amazon')
+    // Keep the previous page (and its filters) on screen while the new one loads.
+    setAmazon((cur) => ({ params, page: cur?.params.query === params.query ? cur.page : null, loading: true }))
     try {
-      const results = await window.api.searchAmazon(q)
-      setAmazon((cur) => (cur?.query === q ? { query: q, results } : cur))
+      const page = await window.api.searchAmazon(params)
+      setAmazon((cur) => (cur?.params === params ? { params, page, loading: false } : cur))
     } catch (e) {
-      setAmazon((cur) => (cur?.query === q ? { query: q, results: [], error: errorText(e) } : cur))
+      setAmazon((cur) => (cur?.params === params ? { ...cur, loading: false, error: errorText(e) } : cur))
     }
   }
 
@@ -94,7 +117,8 @@ export function Dashboard({
   const visible = active.filter(
     (p) =>
       FILTERS.find((f) => f.id === filter)!.test(p) &&
-      (!query || `${p.title} ${p.asin}`.toLowerCase().includes(query.toLowerCase()))
+      // The search text filters your list while typing, not once it went to Amazon.
+      (!query || amazon?.params.query === query.trim() || `${p.title} ${p.asin}`.toLowerCase().includes(query.toLowerCase()))
   )
 
   return (
@@ -142,7 +166,7 @@ export function Dashboard({
       ) : (
         <>
           <div className="filters">
-            {FILTERS.map((f) => (
+            {!showAmazon && FILTERS.map((f) => (
               <button key={f.id} className={filter === f.id ? 'chip on' : 'chip'} onClick={() => setFilter(f.id)}>
                 {t(f.label)} · {active.filter(f.test).length}
               </button>
@@ -160,48 +184,82 @@ export function Dashboard({
                 onChange={(e) => {
                   setQuery(e.target.value)
                   if (!e.target.value.trim()) setAmazon(null)
+                  if (tab === 'amazon') setTab('all')
                 }}
-                title={t('Press Enter to search on Amazon')}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void searchAmazon()
+                  if (e.key === 'Enter') void searchAmazon({ query: query.trim() })
                 }}
               />
+              {query && (
+                <button
+                  className="clear"
+                  title={t('Clear')}
+                  onClick={() => {
+                    setQuery('')
+                    setAmazon(null)
+                    if (tab === 'amazon') setTab('all')
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              )}
             </label>
           </div>
 
-          {addForm}
-          {[
-            { title: t('In your cart'), items: visible.filter((p) => p.source === 'cart') },
-            { title: t('Outside the cart'), items: visible.filter((p) => p.source !== 'cart') }
-          ].map(
-            (g) =>
-              g.items.length > 0 && (
-                <div key={g.title} className="group">
-                  <h3 className="group-title">
-                    {g.title} <span className="count">· {g.items.length}</span>
-                  </h3>
-                  <section className="grid">
-                    {g.items.map((p) => (
-                      <ProductCard key={p.asin} product={p} onOpen={() => onOpen(p.asin)} />
-                    ))}
-                  </section>
-                </div>
+          <div className="tabs">
+            {TABS.map((id) => {
+              const count = visible.filter((p) => id === 'all' || p.source === id).length
+              if (id !== 'all' && active.every((p) => p.source !== id)) return null
+              return (
+                <button key={id} className={tab === id ? 'tab on' : 'tab'} onClick={() => setTab(id)}>
+                  {t(TAB_LABELS[id])} <span className="count">{count}</span>
+                </button>
               )
-          )}
-          {visible.length === 0 && <p className="muted empty">{t('Nothing matches this filter.')}</p>}
-          {query.trim() && amazon?.query !== query.trim() && (
-            <div className="amazon-search">
-              <span className="muted">{t('Looking for something new?')}</span>
-              <button className="btn" onClick={() => void searchAmazon()}>
-                <Search size={15} /> {t('Search “{q}” on Amazon', { q: query.trim() })}
+            })}
+            {amazon && (
+              <button className={tab === 'amazon' ? 'tab on' : 'tab'} onClick={() => setTab('amazon')}>
+                <Search size={14} /> {t('On Amazon: “{q}”', { q: amazon.params.query })}{' '}
+                <span className="count">{amazon.page ? amazon.page.results.length : '…'}</span>
               </button>
-            </div>
+            )}
+          </div>
+
+          {addForm}
+          {!showAmazon &&
+            (tab === 'all'
+              ? TABS.filter((id) => id !== 'all').map((id) => ({ id, items: visible.filter((p) => p.source === id) }))
+              : [{ id: tab as ProductSource, items: visible.filter((p) => p.source === tab) }]
+            ).map(
+              (g) =>
+                g.items.length > 0 && (
+                  <div key={g.id} className="group">
+                    {tab === 'all' && (
+                      <h3 className="group-title">
+                        {t(TAB_LABELS[g.id])} <span className="count">· {g.items.length}</span>
+                      </h3>
+                    )}
+                    <section className="grid">
+                      {g.items.map((p) => (
+                        <ProductCard key={p.asin} product={p} onOpen={() => onOpen(p.asin)} />
+                      ))}
+                    </section>
+                  </div>
+                )
+            )}
+          {!showAmazon && visible.filter((p) => tab === 'all' || p.source === tab).length === 0 && (
+            <p className="muted empty">{t('Nothing matches this filter.')}</p>
           )}
-          {amazon && (
+          {query.trim() && amazon?.params.query !== query.trim() && (
+            <p className="amazon-hint muted">
+              <Search size={14} /> {t('Press Enter to also search “{q}” on Amazon', { q: query.trim() })}
+            </p>
+          )}
+          {showAmazon && (
             <AmazonResults
-              {...amazon}
+              search={amazon}
               tracked={new Set(products.map((p) => p.asin))}
               onTrack={(asin) => void add(asin)}
+              onSearch={(params) => void searchAmazon(params)}
             />
           )}
         </>
@@ -277,71 +335,140 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
   )
 }
 
-/** Amazon search results, as a list: track one here or open it on Amazon. */
+/** Amazon search results as a list, with Amazon's own filters and sort order. */
 function AmazonResults({
-  query,
-  results,
-  error,
+  search,
   tracked,
-  onTrack
+  onTrack,
+  onSearch
 }: {
-  query: string
-  results: SearchResult[] | null
-  error?: string
+  search: AmazonSearch
   tracked: Set<string>
   onTrack: (asin: string) => void
+  onSearch: (params: SearchParams) => void
 }) {
   const { fmt } = useMoney()
   const { t } = useT()
+  const { params, page, loading, error } = search
+  const [min, setMin] = useState(params.minPrice?.toString() ?? '')
+  const [max, setMax] = useState(params.maxPrice?.toString() ?? '')
+  const [open, setOpen] = useState<string | null>(null)
+  const price = (v: string): number | null => (v.trim() && Number(v) >= 0 ? Number(v) : null)
+  const results = page?.results ?? []
+
   return (
     <section className="group">
-      <h3 className="group-title">
-        {t('On Amazon: “{q}”', { q: query })}
-        {results && results.length > 0 && <span className="count">· {results.length}</span>}
-      </h3>
-      {results === null ? (
+      {loading && page && (
+        <p className="muted searching">
+          <Loader2 size={16} className="spin" /> {t('Updating results…')}
+        </p>
+      )}
+
+      {page && (
+        <div className="card search-filters">
+          <div className="filter-row">
+            {page.sorts.length > 0 && (
+              <label className="field">
+                <span>{t('Sort by')}</span>
+                <select value={page.sort ?? ''} onChange={(e) => onSearch({ ...params, sort: e.target.value })}>
+                  {page.sorts.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <form
+              className="field price-range"
+              onSubmit={(e) => {
+                e.preventDefault()
+                onSearch({ ...params, minPrice: price(min), maxPrice: price(max) })
+              }}
+            >
+              <span>{t('Price (USD)')}</span>
+              <input type="number" min="0" placeholder={t('Min')} value={min} onChange={(e) => setMin(e.target.value)} />
+              <span className="faint">–</span>
+              <input type="number" min="0" placeholder={t('Max')} value={max} onChange={(e) => setMax(e.target.value)} />
+              <button className="btn" type="submit">
+                {t('Apply')}
+              </button>
+            </form>
+          </div>
+          {page.filters.map((f) => {
+            const expanded = open === f.title
+            const shown = expanded ? f.options : f.options.slice(0, 8)
+            return (
+              <div key={f.title} className="filter-row">
+                <span className="filter-title">{f.title}</span>
+                <div className="chips">
+                  {shown.map((o) => (
+                    <button
+                      key={o.label}
+                      className={o.selected ? 'chip on' : 'chip'}
+                      disabled={loading}
+                      onClick={() => onSearch({ ...params, rh: o.rh })}
+                    >
+                      {o.selected && <Check size={13} />} {o.label}
+                    </button>
+                  ))}
+                  {f.options.length > 8 && (
+                    <button className="btn link" onClick={() => setOpen(expanded ? null : f.title)}>
+                      {expanded ? t('Less') : t('+{n} more', { n: f.options.length - 8 })}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {!page && loading ? (
         <p className="muted searching">
           <Loader2 size={16} className="spin" /> {t('Searching Amazon…')}
         </p>
       ) : error ? (
         <p className="muted">{error}</p>
-      ) : results.length === 0 ? (
+      ) : page && results.length === 0 ? (
         <p className="muted">{t('Amazon found nothing for this search.')}</p>
       ) : (
-        <div className="card result-list">
-          {results.map((r) => (
-            <div key={r.asin} className="result">
-              <Thumb src={r.image} />
-              <div className="info">
-                <h4 title={r.title}>{r.title}</h4>
-                <div className="meta">
-                  {r.rating && (
-                    <span>
-                      <Star size={13} className="star" /> {r.rating.split(' ')[0]}
-                      {r.reviews && <span className="faint"> ({r.reviews})</span>}
+        page && (
+          <div className={loading ? 'card result-list loading' : 'card result-list'}>
+            {results.map((r) => (
+              <div key={r.asin} className="result">
+                <Thumb src={r.image} />
+                <div className="info">
+                  <h4 title={r.title}>{r.title}</h4>
+                  <div className="meta">
+                    {r.rating && (
+                      <span>
+                        <Star size={13} className="star" /> {r.rating.split(' ')[0]}
+                        {r.reviews && <span className="faint"> ({r.reviews})</span>}
+                      </span>
+                    )}
+                    {r.sponsored && <span className="badge">{t('Sponsored')}</span>}
+                  </div>
+                </div>
+                <span className="price">{r.price !== null ? fmt(r.price) : '—'}</span>
+                <div className="actions">
+                  <button className="btn" title={t('Open on Amazon')} onClick={() => void window.api.openOnAmazon(r.asin)}>
+                    <ExternalLink size={15} />
+                  </button>
+                  {tracked.has(r.asin) ? (
+                    <span className="tracked">
+                      <Check size={15} /> {t('Tracking')}
                     </span>
+                  ) : (
+                    <button className="btn primary" onClick={() => onTrack(r.asin)}>
+                      <Plus size={15} /> {t('Track')}
+                    </button>
                   )}
-                  {r.sponsored && <span className="badge">{t('Sponsored')}</span>}
                 </div>
               </div>
-              <span className="price">{r.price !== null ? fmt(r.price) : '—'}</span>
-              <div className="actions">
-                <button className="btn" title={t('Open on Amazon')} onClick={() => void window.api.openOnAmazon(r.asin)}>
-                  <ExternalLink size={15} />
-                </button>
-                {tracked.has(r.asin) ? (
-                  <span className="tracked">
-                    <Check size={15} /> {t('Tracking')}
-                  </span>
-                ) : (
-                  <button className="btn primary" onClick={() => onTrack(r.asin)}>
-                    <Plus size={15} /> {t('Track')}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )
       )}
     </section>
   )

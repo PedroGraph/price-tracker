@@ -421,6 +421,14 @@ export function getEvents(asin: string): TrackerEvent[] {
   )
 }
 
+/** How many price drops each product had since a date. */
+export function dropCountsSince(since: string): Map<string, number> {
+  const rows = db
+    .prepare(`SELECT asin, COUNT(*) AS n FROM events WHERE type = 'price_down' AND created_at >= ? GROUP BY asin`)
+    .all(since) as { asin: string; n: number }[]
+  return new Map(rows.map((r) => [r.asin, r.n]))
+}
+
 /** Alerts of the last 30 days, newest first, for the bell. */
 export function listRecentAlerts(limit = 60): AlertItem[] {
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString()

@@ -160,6 +160,11 @@ export interface AlertItem extends TrackerEvent {
   image: string | null
 }
 
+export interface SaleOutlook {
+  sale: { id: string; name: string; start: string; days: number; approximate: boolean; daysLeft: number }
+  likely: { asin: string; title: string; image: string | null; price: number | null; drops: number; volatility: number }[]
+}
+
 export interface ExchangeRate {
   /** COP per 1 USD. */
   rate: number

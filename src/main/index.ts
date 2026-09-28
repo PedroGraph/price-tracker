@@ -8,6 +8,7 @@ import { searchUrl } from '@shared/urls'
 import { dismissSuggestion, listSuggestions, refreshSuggestions } from './suggestions'
 import * as db from './db'
 import { maybeSendDigest } from './digest'
+import { maybeSendSaleHeadsUp, saleOutlook } from './sales'
 import { diagnosticsReport } from './diagnostics'
 import { inspectBackup, restoreBackup, writeBackup } from './backup'
 import { cachedRate, currentRate, refreshRate } from './exchange'
@@ -245,6 +246,7 @@ function registerIpc(): void {
   })
   handle('notifications:list', () => ({ alerts: db.listRecentAlerts(), seenAt: db.getSetting<string | null>('alertsSeenAt', null) }))
   handle('notifications:seen', () => db.setSetting('alertsSeenAt', new Date().toISOString()))
+  handle('sales:outlook', () => saleOutlook())
   handle('suggestions:list', () => listSuggestions())
   handle('suggestions:dismiss', (_e, asin: unknown) => {
     if (typeof asin === 'string' && /^[A-Z0-9]{10}$/.test(asin)) dismissSuggestion(asin)
@@ -359,6 +361,7 @@ app.whenReady().then(async () => {
   setInterval(() => {
     void flushQueuedAlerts(currentRate()).catch(() => undefined)
     void maybeSendDigest(currentRate()).catch(() => undefined)
+    void maybeSendSaleHeadsUp().catch(() => undefined)
   }, 5 * 60_000)
 })
 

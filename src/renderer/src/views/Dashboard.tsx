@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
-import { Check, ChevronRight, ExternalLink, Loader2, Plus, Search, ShoppingCart, Star, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Check, ChevronRight, ExternalLink, Loader2, Plus, Search, ShoppingBag, ShoppingCart, Star, X } from 'lucide-react'
 import type { Notify } from '../App'
-import type { DashboardStats, Product, ProductSource, SearchPage, SearchParams, Status } from '@shared/types'
+import type { DashboardStats, Product, ProductSource, SaleOutlook, SearchPage, SearchParams, Status } from '@shared/types'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
 import { BuySignal, ChangePill, DeliveredTotal, Sparkline, Thumb, timeAgo } from '../ui'
@@ -141,6 +141,8 @@ export function Dashboard({
           <div className="value plain">{stats?.alertsLast30Days ?? '—'}</div>
         </div>
       </section>
+
+      <SaleBanner status={status} onOpen={onOpen} />
 
       {active.length === 0 ? (
         <div className="empty">
@@ -470,6 +472,51 @@ function AmazonResults({
             ))}
           </div>
         )
+      )}
+    </section>
+  )
+}
+
+/** "Black Friday starts in 12 days": the next big sale and the products most likely to drop in it. */
+function SaleBanner({ status, onOpen }: { status: Status | null; onOpen: (asin: string) => void }) {
+  const { t, locale } = useT()
+  const { fmt } = useMoney()
+  const [outlook, setOutlook] = useState<SaleOutlook | null>(null)
+  useEffect(() => {
+    void window.api.saleOutlook().then(setOutlook)
+  }, [status?.lastRunAt])
+  if (!outlook) return null
+  const { sale, likely } = outlook
+  const [y, m, d] = sale.start.split('-').map(Number)
+  const date = new Date(y, m - 1, d).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })
+  const when =
+    sale.daysLeft === 0 ? t('starts today') : t(sale.daysLeft === 1 ? 'starts tomorrow' : 'starts in {n} days', { n: sale.daysLeft })
+  return (
+    <section className="card sale-banner">
+      <div className="sale-head">
+        <ShoppingBag size={22} />
+        <div>
+          <h3>
+            {sale.name} {when}
+          </h3>
+          <p className="muted">
+            {date}
+            {sale.approximate && ` · ${t('approximate date')}`}
+          </p>
+        </div>
+      </div>
+      {likely.length > 0 && (
+        <div className="sale-likely">
+          <span className="muted">{t('Most likely to drop')}</span>
+          <div className="chips">
+            {likely.map((p) => (
+              <button key={p.asin} className="chip" onClick={() => onOpen(p.asin)} title={p.title}>
+                {p.title.split(/[,(|]/)[0].slice(0, 40)} · {fmt(p.price)}{' '}
+                <span className="faint">{p.drops > 0 ? t('dropped {n} times', { n: p.drops }) : t('moves {pct}%', { pct: p.volatility })}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </section>
   )

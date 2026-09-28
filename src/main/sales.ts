@@ -50,7 +50,7 @@ export async function maybeSendSaleHeadsUp(now = new Date()): Promise<void> {
   const when =
     sale.daysLeft === 0 ? tr('starts today') : tr(sale.daysLeft === 1 ? 'starts tomorrow' : 'starts in {n} days', { n: sale.daysLeft })
   const title = `${sale.name} ${when}${sale.approximate ? ` (${tr('approximate date')})` : ''}`
-  const lines = likely.map((p) => `${p.title.slice(0, 70)} — ${formatUsd(p.price)} · ${tr('dropped {n} times', { n: p.drops })}`)
+  const lines = likely.map((p) => `${p.title.slice(0, 70)} — ${formatUsd(p.price)} · ${tr(p.drops === 1 ? 'dropped once' : 'dropped {n} times', { n: p.drops })}`)
   const intro = likely.length ? tr('Your products most likely to drop:') : tr('Keep an eye on your products.')
   const html = `<p>${esc(intro)}</p>${lines.length ? `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}`
   const telegram = `🛍️ <b>${esc(title)}</b>\n${esc(intro)}${lines.map((l) => `\n• ${esc(l)}`).join('')}`

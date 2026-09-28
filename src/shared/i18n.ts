@@ -136,6 +136,7 @@ const ES: Record<string, string> = {
   'starts in {n} days': 'empieza en {n} días',
   'approximate date': 'fecha aproximada',
   'dropped {n} times': 'bajó {n} veces',
+  'dropped once': 'bajó 1 vez',
   'Your products most likely to drop:': 'Tus productos con más probabilidad de bajar:',
   'Keep an eye on your products.': 'Atento a tus productos.',
   'Most likely to drop': 'Los que más suelen bajar',

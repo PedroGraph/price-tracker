@@ -557,7 +557,7 @@ function SaleBanner({ status, onOpen }: { status: Status | null; onOpen: (asin: 
             {likely.map((p) => (
               <button key={p.asin} className="chip" onClick={() => onOpen(p.asin)} title={p.title}>
                 {p.title.split(/[,(|]/)[0].slice(0, 40)} · {fmt(p.price)}{' '}
-                <span className="faint">{p.drops > 0 ? t('dropped {n} times', { n: p.drops }) : t('moves {pct}%', { pct: p.volatility })}</span>
+                <span className="faint">{p.drops > 0 ? t(p.drops === 1 ? 'dropped once' : 'dropped {n} times', { n: p.drops }) : t('moves {pct}%', { pct: p.volatility })}</span>
               </button>
             ))}
           </div>

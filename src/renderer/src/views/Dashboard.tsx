@@ -140,11 +140,24 @@ export function Dashboard({
           </div>
 
           {addForm}
-          <section className="grid">
-            {visible.map((p) => (
-              <ProductCard key={p.asin} product={p} onOpen={() => onOpen(p.asin)} />
-            ))}
-          </section>
+          {[
+            { title: t('In your cart'), items: visible.filter((p) => p.source === 'cart') },
+            { title: t('Outside the cart'), items: visible.filter((p) => p.source !== 'cart') }
+          ].map(
+            (g) =>
+              g.items.length > 0 && (
+                <div key={g.title} className="group">
+                  <h3 className="group-title">
+                    {g.title} <span className="count">· {g.items.length}</span>
+                  </h3>
+                  <section className="grid">
+                    {g.items.map((p) => (
+                      <ProductCard key={p.asin} product={p} onOpen={() => onOpen(p.asin)} />
+                    ))}
+                  </section>
+                </div>
+              )
+          )}
           {visible.length === 0 && <p className="muted empty">{t('Nothing matches this filter.')}</p>}
         </>
       )}
@@ -170,7 +183,7 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
         <span className="dot" /> {t('Back in stock')}
       </span>
     ) : (
-      <span className="stock">
+      <span className="stock in">
         <span className="dot" /> {t('In stock')}
       </span>
     )

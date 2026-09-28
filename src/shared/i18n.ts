@@ -70,6 +70,8 @@ const ES: Record<string, string> = {
   Coupon: 'Cupón',
   '{n} sellers': '{n} vendedores',
   'Not in cart': 'Fuera del carrito',
+  'In your cart': 'En tu carrito',
+  'Outside the cart': 'Fuera del carrito',
   '+ {amount} shipping': '+ {amount} envío',
   '+ {amount} import fees': '+ {amount} importación',
   'View details': 'Ver detalle',

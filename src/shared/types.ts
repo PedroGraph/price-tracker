@@ -138,6 +138,8 @@ export interface Settings {
   digestHour: number
   /** UI and alert language. */
   language: 'en' | 'es'
+  /** Alerts are held (like quiet hours) until this time; set by /pausar. */
+  pausedUntil: string | null
 }
 
 export interface UpdateState {

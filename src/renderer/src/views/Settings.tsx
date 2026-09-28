@@ -346,6 +346,16 @@ export function SettingsView({
           <HourSelect value={draft.quietEnd} onChange={(h) => save({ quietEnd: h })} disabled={!draft.quietEnabled} />
         </div>
         <p className="hint">{t("Warnings about the app itself (signed out of Amazon, pages can't be read) are always sent.")}</p>
+        {draft.pausedUntil && Date.parse(draft.pausedUntil) > Date.now() && (
+          <div className="row" style={{ marginTop: 10 }}>
+            <span className="signal normal">
+              ⏸ {t('Alerts paused until {time}', { time: new Date(draft.pausedUntil).toLocaleString() })}
+            </span>
+            <button className="btn link" onClick={() => save({ pausedUntil: null })}>
+              {t('Resume now')}
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="card">

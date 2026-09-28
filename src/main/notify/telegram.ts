@@ -2,11 +2,12 @@ import { getSecret, getSettings, tr } from '../settings'
 
 const API = 'https://api.telegram.org'
 
-async function call<T>(token: string, method: string, body?: unknown): Promise<T> {
+export async function call<T>(token: string, method: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${API}/bot${token}/${method}`, {
     method: body ? 'POST' : 'GET',
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined
+    body: body ? JSON.stringify(body) : undefined,
+    signal
   })
   const json = (await res.json()) as { ok: boolean; result?: T; description?: string }
   // Never echo the URL: it contains the bot token.

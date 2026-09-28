@@ -3,7 +3,6 @@ import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { toCsv } from '@shared/csv'
-import { parseAsin } from '@shared/pricing'
 import type { Settings, Threshold } from '@shared/types'
 import * as db from './db'
 import { maybeSendDigest } from './digest'
@@ -15,7 +14,9 @@ import { APP_URL, registerAppScheme, serveRenderer } from './appProtocol'
 import { amazonSession, clearAmazonSession, flushAmazonSession, openAmazonWindow } from './scraper/amazon'
 import { denyPermissions, installGlobalGuards, isTrustedSender, openExternal, reencryptCookies } from './security'
 import { getSettings, saveSettings, setResendKey, setSecret } from './settings'
-import { botName, detectChat, sendTelegramTest } from './notify/telegram'
+import { botName, sendTelegramTest } from './notify/telegram'
+import { detectChatWhilePaused, syncBot } from './notify/telegramBot'
+import { resolveAsin } from './resolveAsin'
 import { events, runCheck, schedule, status } from './tracker'
 import { checkForUpdates, initUpdater, installUpdate, update } from './updater'
 
@@ -137,21 +138,6 @@ function setupTray(icon: Electron.NativeImage): void {
   tray.on('click', showWindow)
 }
 
-/** Accepts a bare ASIN, a product URL, or a short amzn.to / a.co link (followed to the product page). */
-async function resolveAsin(input: string): Promise<string | null> {
-  const direct = parseAsin(input)
-  if (direct) return direct
-  let url: URL
-  try {
-    url = new URL(input.trim())
-  } catch {
-    return null
-  }
-  if (!/^(amzn\.to|a\.co|amzn\.com|www\.amazon\.com|amazon\.com)$/i.test(url.hostname)) return null
-  const res = await fetch(url, { method: 'GET', redirect: 'follow' })
-  return parseAsin(res.url)
-}
-
 /** ipcMain.handle, but only for calls coming from the app's own page. */
 function handle(channel: string, fn: (event: IpcMainInvokeEvent, ...args: any[]) => unknown): void {
   ipcMain.handle(channel, (event, ...args) => {
@@ -198,20 +184,25 @@ function registerIpc(): void {
   handle('settings:save', (_e, patch: Partial<Settings>) => {
     const saved = saveSettings(patch)
     schedule()
+    syncBot()
     return saved
   })
   handle('settings:resendKey', (_e, key: string | null) => setResendKey(key))
   handle('email:test', () => sendTestEmail())
   // The token is checked with Telegram before it's stored, and only the bot name goes back to the UI.
   handle('telegram:token', async (_e, token: string | null) => {
-    if (!token) return setSecret('telegramToken', null)
+    if (!token) {
+      setSecret('telegramToken', null)
+      return syncBot()
+    }
     const name = await botName(token.trim())
     setSecret('telegramToken', token)
     return name
   })
   handle('telegram:detect', async () => {
-    const chat = await detectChat()
+    const chat = await detectChatWhilePaused()
     saveSettings({ telegramChatId: chat.id, telegramEnabled: true })
+    syncBot()
     return chat.label
   })
   handle('telegram:test', () => sendTelegramTest())
@@ -290,6 +281,7 @@ app.whenReady().then(async () => {
   createTray()
   status.exchangeRate = (await refreshRate()) ?? cachedRate()
   void runCheck().finally(schedule)
+  syncBot()
   initUpdater(() => {
     status.update = { ...update }
     events.emit('status', { ...status })

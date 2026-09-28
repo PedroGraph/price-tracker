@@ -76,6 +76,19 @@ Everyone who uses the app uses **their own** Resend API key.
 
 Price alerts and the app's own warnings (signed out of Amazon, pages can't be read) go to every channel you set up.
 
+You can also talk to the bot (it only answers your own chat):
+
+| Command | What it does |
+| --- | --- |
+| `/precios` | Current price of every product, with its change and the buy indicator |
+| `/agregar <link or ASIN>` | Start tracking a product |
+| `/revisar` | Check prices now |
+| `/pausar [hours]` | Hold alerts (8 h by default); they arrive together when the pause ends |
+| `/reanudar` | Resume alerts now |
+| `/ayuda` | List the commands |
+
+English names work too (`/prices`, `/add`, `/check`, `/pause`, `/resume`, `/help`).
+
 ### 4. Tune it
 
 In **Settings**: a daily or weekly summary, quiet hours (price alerts wait until they end), the check interval (15 minutes minimum), the global threshold, Windows notifications, and starting with Windows (minimized to the tray).

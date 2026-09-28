@@ -64,6 +64,7 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
     const off = window.api.onStatus((s) => {
       setStatus(s)
       void reload()
+      void window.api.getSettings().then(setSettings)
     })
     // Keeps the "x min ago" labels fresh.
     const t = window.setInterval(() => tick((n) => n + 1), 30_000)

@@ -128,8 +128,10 @@ function telegramAlerts(alerts: Alert[], rate: number | null): string {
 /** Alerts held back during quiet hours, kept in the settings table so they survive a restart. */
 const queued = (): Alert[] => getSetting<Alert[]>('queuedAlerts', [])
 
+/** Quiet hours, or alerts paused from Telegram with /pausar. */
 export function inQuietHours(now = new Date()): boolean {
-  const { quietEnabled, quietStart, quietEnd } = getSettings()
+  const { quietEnabled, quietStart, quietEnd, pausedUntil } = getSettings()
+  if (pausedUntil && Date.parse(pausedUntil) > now.getTime()) return true
   return quietEnabled && isQuiet(now, quietStart, quietEnd)
 }
 

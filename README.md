@@ -40,6 +40,12 @@ Products you remove from your Amazon cart stop being tracked, and their history 
 
 The database uses SQLite built into Electron (`node:sqlite`), so there's nothing native to compile.
 
+## Install
+
+Download **`Price-Tracker-Installer.exe`** (under 100 KB) from the [latest release](https://github.com/PedroGraph/price-tracker/releases/latest) and open it. It's a small installer window made for this app: it downloads the latest version from this repo's releases, checks its SHA-512 fingerprint against the published `latest.yml`, installs it for your user only (no admin rights) and opens it. `Price-Tracker-Setup-x.y.z.exe` in the same release is the plain installer it runs, and what automatic updates use.
+
+The installer window is in [`installer/`](installer/) and is built with the C# compiler that ships with Windows (`npm run installer`).
+
 ## Getting started
 
 ```bash

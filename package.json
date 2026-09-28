@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "fixtures": "electron scripts/capture-fixtures.cjs",
+    "installer": "node scripts/build-installer.cjs",
     "email:preview": "vite-node --config vitest.config.ts scripts/email-preview.ts",
     "dist": "node scripts/build.cjs --publish never",
     "release": "node scripts/build.cjs --publish always"

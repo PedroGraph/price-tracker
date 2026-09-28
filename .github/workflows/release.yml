@@ -41,3 +41,11 @@ jobs:
         env:
           # GitHub's own per-run token; no personal token needed.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the installer window and attach it to the release
+        shell: bash
+        run: |
+          npm run installer
+          gh release upload "${GITHUB_REF_NAME}" release/Price-Tracker-Installer.exe --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

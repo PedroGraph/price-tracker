@@ -56,6 +56,8 @@ export interface Product {
   /** Lowest tracked price ever and in the last 30 days. */
   lowestPrice: number | null
   lowest30: number | null
+  /** Your own labels, e.g. "Gifts" or "Office". */
+  tags: string[]
 }
 
 /** One tracking run, for the diagnostics list. */

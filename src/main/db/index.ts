@@ -69,7 +69,8 @@ const MIGRATIONS = [
      checked INTEGER NOT NULL,
      unreadable INTEGER NOT NULL,
      alerts INTEGER NOT NULL
-   );`
+   );`,
+  `ALTER TABLE products ADD COLUMN tags TEXT NOT NULL DEFAULT '[]';`
 ]
 
 export function openDb(file = join(app.getPath('userData'), 'tracker.db')): void {
@@ -87,6 +88,15 @@ export function openDb(file = join(app.getPath('userData'), 'tracker.db')): void
 const now = (): string => new Date().toISOString()
 
 type ProductRow = Record<string, unknown>
+
+function parseTags(value: unknown): string[] {
+  try {
+    const tags = JSON.parse(typeof value === 'string' ? value : '[]')
+    return Array.isArray(tags) ? tags.filter((t): t is string => typeof t === 'string') : []
+  } catch {
+    return []
+  }
+}
 
 function toProduct(r: ProductRow): Product {
   return {
@@ -119,6 +129,7 @@ function toProduct(r: ProductRow): Product {
     deal: (r.deal as string) ?? null,
     lowestPrice: null,
     lowest30: null,
+    tags: parseTags(r.tags),
     avg30: null,
     runs30: 0,
     spanDays30: 0
@@ -357,8 +368,11 @@ export function priceStats(asin: string): { lowest: number | null; readings: num
 
 export function setProductOptions(
   asin: string,
-  opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null }
+  opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null; tags?: string[] }
 ): void {
+  if (opts.tags !== undefined) {
+    db.prepare('UPDATE products SET tags = ? WHERE asin = ?').run(JSON.stringify(cleanTags(opts.tags)), asin)
+  }
   if (opts.targetPrice !== undefined) {
     db.prepare('UPDATE products SET target_price = ? WHERE asin = ?').run(opts.targetPrice, asin)
   }
@@ -527,4 +541,16 @@ export function setSetting(key: string, value: unknown): void {
     key,
     JSON.stringify(value)
   )
+}
+
+/** Trimmed, de-duplicated (ignoring case), at most 10 tags of 30 characters. */
+export function cleanTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) return []
+  const out: string[] = []
+  for (const t of tags) {
+    if (typeof t !== 'string') continue
+    const tag = t.trim().replace(/\s+/g, ' ').slice(0, 30)
+    if (tag && !out.some((o) => o.toLowerCase() === tag.toLowerCase())) out.push(tag)
+  }
+  return out.slice(0, 10)
 }

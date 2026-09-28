@@ -189,7 +189,7 @@ function registerIpc(): void {
   })
   handle('products:history', (_e, asin: string) => db.getHistory(asin))
   handle('products:events', (_e, asin: string) => db.getEvents(asin))
-  handle('products:options', (_e, asin: string, opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null }) =>
+  handle('products:options', (_e, asin: string, opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null; tags?: string[] }) =>
     db.setProductOptions(asin, opts)
   )
   handle('settings:get', () => getSettings())

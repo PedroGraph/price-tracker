@@ -206,6 +206,7 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
           <ProductDetail
             product={products.find((p) => p.asin === view.asin)}
             globalThreshold={settings.threshold}
+            allTags={[...new Set(products.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b))}
             onChanged={reload}
             notify={notify}
             onRemoved={() => {

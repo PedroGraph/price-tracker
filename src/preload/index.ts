@@ -14,7 +14,7 @@ const api = {
   getEvents: (asin: string): Promise<TrackerEvent[]> => ipcRenderer.invoke('products:events', asin),
   setProductOptions: (
     asin: string,
-    opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null }
+    opts: { trackOffers?: boolean; threshold?: Threshold | null; targetPrice?: number | null; tags?: string[] }
   ): Promise<void> =>
     ipcRenderer.invoke('products:options', asin, opts),
   getSettings: (): Promise<Settings> => ipcRenderer.invoke('settings:get'),

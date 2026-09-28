@@ -20,8 +20,10 @@ export function ProductDetail({
   globalThreshold,
   onChanged,
   notify,
-  onRemoved
+  onRemoved,
+  allTags
 }: {
+  allTags: string[]
   product: Product | undefined
   globalThreshold: Threshold
   onChanged: () => void
@@ -435,6 +437,8 @@ export function ProductDetail({
           </p>
         </div>
 
+        <TagsCard product={product} allTags={allTags} onChanged={onChanged} />
+
         <div className="card">
           <h3>{t('Target price')}</h3>
           <p className="sub">{t('Get one alert when the price drops to this amount or below.')}</p>
@@ -556,6 +560,63 @@ export function ProductDetail({
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Your own labels for this product; they become tabs on the dashboard. */
+function TagsCard({ product, allTags, onChanged }: { product: Product; allTags: string[]; onChanged: () => void }) {
+  const { t } = useT()
+  const [text, setText] = useState('')
+  const save = async (tags: string[]): Promise<void> => {
+    await window.api.setProductOptions(product.asin, { tags })
+    onChanged()
+  }
+  const add = (tag: string): void => {
+    const clean = tag.trim()
+    if (!clean || product.tags.some((x) => x.toLowerCase() === clean.toLowerCase())) return setText('')
+    setText('')
+    void save([...product.tags, clean])
+  }
+  const others = allTags.filter((tag) => !product.tags.some((x) => x.toLowerCase() === tag.toLowerCase()))
+  return (
+    <div className="card">
+      <h3>{t('Tags')}</h3>
+      <p className="sub">{t('Group products your way, e.g. Gifts or Office. Each tag becomes a tab on the dashboard.')}</p>
+      <div className="tag-list">
+        {product.tags.map((tag) => (
+          <span key={tag} className="tag">
+            #{tag}
+            <button onClick={() => void save(product.tags.filter((x) => x !== tag))} aria-label={t('Remove')}>
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          className="tag-input"
+          maxLength={30}
+          placeholder={t('Add a tag…')}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ',') {
+              e.preventDefault()
+              add(text)
+            }
+          }}
+          onBlur={() => text.trim() && add(text)}
+        />
+      </div>
+      {others.length > 0 && (
+        <div className="tag-list suggestions">
+          {others.map((tag) => (
+            <button key={tag} className="chip" onClick={() => add(tag)}>
+              + #{tag}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

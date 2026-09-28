@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, ChevronRight, ExternalLink, Loader2, Plus, Search, ShoppingBag, ShoppingCart, Star, X } from 'lucide-react'
+import { Check, ChevronRight, ExternalLink, Loader2, Plus, LayoutGrid, Search, ShoppingBag, ShoppingCart, Star, Table2, X } from 'lucide-react'
 import type { Notify } from '../App'
 import type { DashboardStats, Product, ProductSource, SaleOutlook, SearchPage, SearchParams, Status } from '@shared/types'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
+import { landedTotal } from '@shared/pricing'
 import { BuySignal, ChangePill, DeliveredTotal, Sparkline, Thumb, timeAgo } from '../ui'
 
 type Filter = 'all' | 'down' | 'up' | 'out'
 
-type Tab = 'all' | ProductSource | 'amazon'
+type Tab = 'all' | ProductSource | 'amazon' | `#${string}`
 
 // Where each product comes from, in display order. Labels are English keys.
 const TABS: ('all' | ProductSource)[] = ['all', 'cart', 'saved', 'wishlist', 'manual']
@@ -64,6 +65,21 @@ export function Dashboard({
   // With an Amazon search open, the page switches between it and your own list.
   const [tab, setTab] = useState<Tab>('all')
   const showAmazon = amazon !== null && tab === 'amazon'
+  const [layout, setLayoutState] = useState<'grid' | 'table'>(() => {
+    try {
+      return localStorage.getItem('layout') === 'table' ? 'table' : 'grid'
+    } catch {
+      return 'grid'
+    }
+  })
+  const setLayout = (l: 'grid' | 'table'): void => {
+    setLayoutState(l)
+    try {
+      localStorage.setItem('layout', l)
+    } catch {
+      // Only a convenience.
+    }
+  }
 
   const add = async (input = link): Promise<void> => {
     try {
@@ -114,11 +130,15 @@ export function Dashboard({
   )
   const active = useMemo(() => products.filter((p) => p.active), [products])
 
+  const tags = useMemo(() => [...new Set(active.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b)), [active])
   const visible = active.filter(
     (p) =>
       FILTERS.find((f) => f.id === filter)!.test(p) &&
       // The search text filters your list while typing, not once it went to Amazon.
       (!query || amazon?.params.query === query.trim() || `${p.title} ${p.asin}`.toLowerCase().includes(query.toLowerCase()))
+  )
+  const inTab = visible.filter((p) =>
+    tab === 'all' || tab === 'amazon' ? true : tab.startsWith('#') ? p.tags.includes(tab.slice(1)) : p.source === tab
   )
 
   return (
@@ -218,26 +238,44 @@ export function Dashboard({
                 </button>
               )
             })}
+            {tags.map((tag) => (
+              <button key={tag} className={tab === `#${tag}` ? 'tab on tag-tab' : 'tab tag-tab'} onClick={() => setTab(`#${tag}`)}>
+                #{tag} <span className="count">{visible.filter((p) => p.tags.includes(tag)).length}</span>
+              </button>
+            ))}
             {amazon && (
               <button className={tab === 'amazon' ? 'tab on' : 'tab'} onClick={() => setTab('amazon')}>
                 <Search size={14} /> {t('On Amazon: “{q}”', { q: amazon.params.query })}{' '}
                 <span className="count">{amazon.page ? amazon.page.results.length : '…'}</span>
               </button>
             )}
+            <div className="spacer" />
+            {!showAmazon && (
+              <div className="view-toggle">
+                <button className={layout === 'grid' ? 'on' : ''} onClick={() => setLayout('grid')} title={t('Cards')}>
+                  <LayoutGrid size={16} />
+                </button>
+                <button className={layout === 'table' ? 'on' : ''} onClick={() => setLayout('table')} title={t('Table')}>
+                  <Table2 size={16} />
+                </button>
+              </div>
+            )}
           </div>
 
           {addForm}
+          {!showAmazon && layout === 'table' && inTab.length > 0 && <ProductTable products={inTab} onOpen={onOpen} />}
           {!showAmazon &&
+            layout === 'grid' &&
             (tab === 'all'
-              ? TABS.filter((id) => id !== 'all').map((id) => ({ id, items: visible.filter((p) => p.source === id) }))
-              : [{ id: tab as ProductSource, items: visible.filter((p) => p.source === tab) }]
+              ? TABS.filter((id) => id !== 'all').map((id) => ({ id, title: t(TAB_LABELS[id]), items: visible.filter((p) => p.source === id) }))
+              : [{ id: tab, title: '', items: inTab }]
             ).map(
               (g) =>
                 g.items.length > 0 && (
                   <div key={g.id} className="group">
                     {tab === 'all' && (
                       <h3 className="group-title">
-                        {t(TAB_LABELS[g.id])} <span className="count">· {g.items.length}</span>
+                        {g.title} <span className="count">· {g.items.length}</span>
                       </h3>
                     )}
                     <section className="grid">
@@ -248,9 +286,7 @@ export function Dashboard({
                   </div>
                 )
             )}
-          {!showAmazon && visible.filter((p) => tab === 'all' || p.source === tab).length === 0 && (
-            <p className="muted empty">{t('Nothing matches this filter.')}</p>
-          )}
+          {!showAmazon && inTab.length === 0 && <p className="muted empty">{t('Nothing matches this filter.')}</p>}
           {query.trim() && amazon?.params.query !== query.trim() && (
             <p className="amazon-hint muted">
               <Search size={14} /> {t('Press Enter to also search “{q}” on Amazon', { q: query.trim() })}
@@ -300,6 +336,15 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
         <div>
           <h4 title={p.title}>{p.title}</h4>
           {stock}
+          {p.tags.length > 0 && (
+            <div className="card-tags">
+              {p.tags.map((tag) => (
+                <span key={tag} className="tag">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="badges">
           {p.targetPrice !== null && p.lastPrice !== null && p.lastPrice <= p.targetPrice && (
@@ -519,5 +564,96 @@ function SaleBanner({ status, onOpen }: { status: Status | null; onOpen: (asin: 
         </div>
       )}
     </section>
+  )
+}
+
+type SortKey = 'title' | 'source' | 'price' | 'change' | 'lowest' | 'total' | 'stock' | 'checked'
+
+/** Every product in one sortable table, for comparing many at once. */
+function ProductTable({ products, onOpen }: { products: Product[]; onOpen: (asin: string) => void }) {
+  const { t } = useT()
+  const { fmt } = useMoney()
+  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: 'change', desc: false })
+  const change = (p: Product): number | null =>
+    p.firstPrice && p.lastPrice !== null ? ((p.lastPrice - p.firstPrice) / p.firstPrice) * 100 : null
+  const value = (p: Product): string | number | null => {
+    switch (sort.key) {
+      case 'title':
+        return p.title.toLowerCase()
+      case 'source':
+        return t(TAB_LABELS[p.source])
+      case 'price':
+        return p.lastPrice
+      case 'change':
+        return change(p)
+      case 'lowest':
+        return p.lowestPrice
+      case 'total':
+        return landedTotal(p.lastPrice, p.lastShipping, p.lastImportFees)
+      case 'stock':
+        return p.available === null ? null : p.available ? 1 : 0
+      case 'checked':
+        return p.lastCheckedAt
+    }
+  }
+  // Empty values always go last, whichever the direction.
+  const rows = [...products].sort((a, b) => {
+    const va = value(a)
+    const vb = value(b)
+    if (va === null) return vb === null ? 0 : 1
+    if (vb === null) return -1
+    const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb))
+    return sort.desc ? -cmp : cmp
+  })
+  const header = (key: SortKey, label: string, num = false) => (
+    <th className={num ? 'num' : ''}>
+      <button className={sort.key === key ? 'sort on' : 'sort'} onClick={() => setSort({ key, desc: sort.key === key ? !sort.desc : false })}>
+        {t(label)} {sort.key === key && (sort.desc ? '▼' : '▲')}
+      </button>
+    </th>
+  )
+  return (
+    <div className="card table-card">
+      <div className="table-scroll">
+        <table className="products-table">
+          <thead>
+            <tr>
+              {header('title', 'Product')}
+              {header('source', 'Where')}
+              {header('price', 'Price', true)}
+              {header('change', 'Change', true)}
+              {header('lowest', 'Lowest', true)}
+              {header('total', 'Delivered', true)}
+              {header('stock', 'Stock')}
+              {header('checked', 'Checked')}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => {
+              const c = change(p)
+              return (
+                <tr key={p.asin} onClick={() => onOpen(p.asin)}>
+                  <td className="product-cell">
+                    <Thumb src={p.image} />
+                    <span title={p.title}>{p.title}</span>
+                  </td>
+                  <td className="muted">{t(TAB_LABELS[p.source])}</td>
+                  <td className="num mono">{fmt(p.lastPrice)}</td>
+                  <td className={`num mono ${c === null || Math.abs(c) < 0.05 ? 'muted' : c < 0 ? 'ok-text' : 'bad-text'}`}>
+                    {c === null ? '—' : `${c > 0 ? '+' : ''}${c.toFixed(1)}%`}
+                  </td>
+                  <td className="num mono">{fmt(p.lowestPrice)}</td>
+                  <td className="num mono">{fmt(landedTotal(p.lastPrice, p.lastShipping, p.lastImportFees))}</td>
+                  <td className={p.available === false ? 'bad-text' : p.available ? 'ok-text' : 'muted'}>
+                    {p.available === null ? '—' : p.available ? t('In stock') : t('Out of stock')}
+                  </td>
+                  <td className="muted">{timeAgo(p.lastCheckedAt, t)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }

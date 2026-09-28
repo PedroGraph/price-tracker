@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { BackupInfo } from '../main/backup'
-import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Status, Threshold, TrackerEvent } from '@shared/types'
+import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Suggestion, Status, Threshold, TrackerEvent } from '@shared/types'
 
 /** The only surface the UI can reach. Each method maps to one IPC channel. */
 const api = {
@@ -30,6 +30,9 @@ const api = {
   openAmazon: (): Promise<void> => ipcRenderer.invoke('amazon:login'),
   searchAmazon: (params: SearchParams): Promise<SearchPage> => ipcRenderer.invoke('amazon:search', params),
   openOnAmazon: (asin: string): Promise<void> => ipcRenderer.invoke('amazon:product', asin),
+  listSuggestions: (): Promise<Suggestion[]> => ipcRenderer.invoke('suggestions:list'),
+  dismissSuggestion: (asin: string): Promise<void> => ipcRenderer.invoke('suggestions:dismiss', asin),
+  refreshSuggestions: (): Promise<Suggestion[]> => ipcRenderer.invoke('suggestions:refresh'),
   signOut: (): Promise<void> => ipcRenderer.invoke('amazon:logout'),
   runNow: (): Promise<void> => ipcRenderer.invoke('tracker:run'),
   listRuns: (): Promise<RunRecord[]> => ipcRenderer.invoke('diagnostics:runs'),

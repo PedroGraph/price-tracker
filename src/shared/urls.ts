@@ -53,3 +53,19 @@ export function searchUrl(p: SearchParams): string | null {
   if (sort) url.searchParams.set('s', sort)
   return url.toString()
 }
+
+/** Amazon's "Coupons" search refinement (Deals & discounts → Coupons). */
+export const COUPON_FILTER = 'p_n_deal_type:210906366011'
+
+/**
+ * A short search for products like this one: the title before its first comma, dash or
+ * bracket, without condition words, cut to six words. "Apple MacBook Pro 2023 with M3
+ * chip (14-inch…) (Renewed)" → "Apple MacBook Pro 2023 with M3".
+ */
+export function relatedQuery(title: string): string {
+  const head = title
+    .replace(/[([{].*?[)\]}]/g, ' ')
+    .split(/[,|–—]| - /)[0]
+    .replace(/\b(renewed|renovado|reacondicionado|used|usado)\b/gi, ' ')
+  return head.split(/\s+/).filter(Boolean).slice(0, 6).join(' ')
+}

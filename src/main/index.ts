@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { toCsv } from '@shared/csv'
 import type { SearchParams, Settings, Threshold } from '@shared/types'
 import { searchUrl } from '@shared/urls'
+import { dismissSuggestion, listSuggestions, refreshSuggestions } from './suggestions'
 import * as db from './db'
 import { maybeSendDigest } from './digest'
 import { diagnosticsReport } from './diagnostics'
@@ -241,6 +242,14 @@ function registerIpc(): void {
     if (typeof asin !== 'string' || !/^[A-Z0-9]{10}$/.test(asin)) throw new Error('Invalid ASIN.')
     await openAmazonWindow(win ?? undefined, asin)
     void runCheck()
+  })
+  handle('suggestions:list', () => listSuggestions())
+  handle('suggestions:dismiss', (_e, asin: unknown) => {
+    if (typeof asin === 'string' && /^[A-Z0-9]{10}$/.test(asin)) dismissSuggestion(asin)
+  })
+  handle('suggestions:refresh', async () => {
+    await refreshSuggestions(true)
+    return listSuggestions()
   })
   handle('amazon:logout', async () => {
     await clearAmazonSession()

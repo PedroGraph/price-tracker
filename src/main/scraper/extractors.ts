@@ -231,6 +231,8 @@ export interface RawSearchResult {
   rating: string | null
   reviews: string | null
   sponsored: boolean
+  /** "Save 15%" when the product has a coupon to clip. */
+  coupon: string | null
 }
 
 /** Results of an Amazon search page (/s?k=…). */
@@ -265,6 +267,9 @@ export function extractSearch(): PageFlags & {
       rating: text(row.querySelector('.a-icon-star-small .a-icon-alt, .a-icon-star-mini .a-icon-alt, i[class*="a-star"] .a-icon-alt')),
       reviews:
         row.querySelector('a[href*="customerReviews"] span')?.textContent?.replace(/[^\d.,KkMm]/g, '') || null,
+      coupon:
+        text(row.querySelector('.s-coupon-unclipped .s-coupon-highlight-color')) ??
+        text(row.querySelector('.s-coupon-unclipped')),
       sponsored: !!row.querySelector('.puis-sponsored-label-text, .s-sponsored-label-text, [aria-label*="Sponsored"], [aria-label*="Patrocinado"]')
     })
   })

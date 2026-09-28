@@ -3,6 +3,7 @@ import { app } from 'electron'
 import { evaluateReading, extraEvents, promoEvents } from '@shared/pricing'
 import type { Status } from '@shared/types'
 import * as db from './db'
+import { refreshSuggestions } from './suggestions'
 import { cachedRate, currentRate, refreshRate } from './exchange'
 import { recordOutcome, RETRY_DELAYS_MIN, type RunOutcome } from './health'
 import { deliverAlerts, flushQueuedAlerts, type Alert } from './notify'
@@ -75,6 +76,8 @@ export async function runCheck(): Promise<void> {
   status.running = false
   status.lastRunAt = new Date().toISOString()
   emit()
+  // After a good check, look for coupons on related products (at most every 12 hours).
+  if (outcome.kind === 'ok') void refreshSuggestions().then((ran) => ran && emit())
 
   if (rerunRequested) {
     rerunRequested = false

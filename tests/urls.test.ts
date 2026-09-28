@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isAllowedExternal, isAmazonUrl, searchUrl } from '../src/shared/urls'
+import { isAllowedExternal, isAmazonUrl, relatedQuery, searchUrl } from '../src/shared/urls'
 
 describe('isAmazonUrl', () => {
   it('accepts amazon.com and its subdomains over https', () => {
@@ -42,5 +42,13 @@ describe('searchUrl', () => {
     expect(searchUrl({ query: '' })).toBeNull()
     expect(searchUrl({ query: 'x', rh: 'a&b=c' })).toBeNull()
     expect(searchUrl({ query: 'x', sort: '../evil' })).toBeNull()
+  })
+})
+
+describe('relatedQuery', () => {
+  it('keeps the product name: before commas and brackets, without condition words, six words at most', () => {
+    expect(relatedQuery('Apple MacBook Pro 2023 con chip Apple M3 de 14 pulgadas, 8 GB de RAM (renovado)')).toBe('Apple MacBook Pro 2023 con chip')
+    expect(relatedQuery('Apple AirPods Pro (3.ª generación) (Renovado) | Traducción en vivo')).toBe('Apple AirPods Pro')
+    expect(relatedQuery('Tapo TP-Link Tapo SolarCam C402 Kit, cámara solar')).toBe('Tapo TP-Link Tapo SolarCam C402 Kit')
   })
 })

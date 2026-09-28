@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Suggestions } from './Suggestions'
 import { ChevronLeft, Moon, RefreshCw, Settings as Gear, Sun, TrendingUp } from 'lucide-react'
 import type { DashboardStats, Product, Settings, Status } from '@shared/types'
 import { LangContext, useT } from './i18n'
@@ -131,6 +132,18 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
               <span className="sep" />
               <span>{t('Next check in {time}', { time: timeUntil(status?.nextRunAt ?? null) })}</span>
             </div>
+            <Suggestions
+              status={status}
+              onTrack={async (asin) => {
+                try {
+                  await window.api.addProduct(asin)
+                  notify(t('Tracking {asin}. Its price appears after this check.', { asin }))
+                } catch (e) {
+                  notify(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e), true)
+                  throw e
+                }
+              }}
+            />
             {themeButton}
             <button className="icon-btn" onClick={() => setView({ name: 'settings' })} aria-label={t('Settings')}>
               <Gear size={18} />

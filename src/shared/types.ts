@@ -79,6 +79,13 @@ export interface SearchResult {
   rating: string | null
   reviews: string | null
   sponsored: boolean
+  coupon: string | null
+}
+
+/** A product with a coupon, related to one in the cart. */
+export interface Suggestion extends SearchResult {
+  forAsin: string
+  forTitle: string
 }
 
 export interface SearchParams {

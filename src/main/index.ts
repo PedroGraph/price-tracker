@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, session, Tray, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme, Menu, nativeImage, session, Tray, type IpcMainInvokeEvent } from 'electron'
 import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -11,6 +11,7 @@ import { inspectBackup, restoreBackup, writeBackup } from './backup'
 import { cachedRate, currentRate, refreshRate } from './exchange'
 import { flushQueuedAlerts, sendTestEmail } from './notify'
 import { APP_URL, registerAppScheme, serveRenderer } from './appProtocol'
+import { mark } from './startup'
 import { amazonSession, clearAmazonSession, flushAmazonSession, openAmazonWindow } from './scraper/amazon'
 import { denyPermissions, installGlobalGuards, isTrustedSender, openExternal, reencryptCookies } from './security'
 import { getSettings, saveSettings, setResendKey, setSecret } from './settings'
@@ -62,6 +63,8 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 560,
     show: false,
+    // Paint the app's background right away instead of a white window while the page loads.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#121412' : '#f5f4f0',
     title: 'Price Tracker',
     icon: resourceImage('icon.png') ?? undefined,
     autoHideMenuBar: true,
@@ -76,7 +79,10 @@ function createWindow(): void {
   // Stay in the tray when started with --hidden (Windows start-up) or after a background update.
   const relaunchHidden = db.getSetting<boolean>('relaunchHidden', false)
   if (relaunchHidden) db.setSetting('relaunchHidden', false)
-  if (!process.argv.includes('--hidden') && !relaunchHidden) win.once('ready-to-show', () => win?.show())
+  win.once('ready-to-show', () => mark('windowReady'))
+  win.webContents.once('did-finish-load', () => mark('pageLoaded'))
+  // Show at once; the page fills in a moment later.
+  if (!process.argv.includes('--hidden') && !relaunchHidden) win.show()
 
   // Closing the window keeps the tracker running in the tray.
   win.on('close', (e) => {
@@ -263,7 +269,9 @@ function registerIpc(): void {
   events.on('status', (s) => win?.webContents.send('status', { ...s, exchangeRate: cachedRate() }))
 }
 
+
 app.whenReady().then(async () => {
+  mark('ready')
   denyPermissions(session.defaultSession)
   denyPermissions(amazonSession())
   // No menu in the installed app: no reload / DevTools shortcuts.
@@ -278,11 +286,15 @@ app.whenReady().then(async () => {
     () => db.getSetting<boolean>('cookiesReencrypted', false),
     () => db.setSetting('cookiesReencrypted', true)
   ).catch(() => undefined)
+  mark('dbOpen')
   registerIpc()
   createWindow()
+  mark('windowCreated')
   createTray()
-  status.exchangeRate = (await refreshRate()) ?? cachedRate()
-  void runCheck().finally(schedule)
+  // The first check opens Amazon in a hidden browser: let the window settle first.
+  const FIRST_CHECK_DELAY = 15_000
+  status.nextRunAt = new Date(Date.now() + FIRST_CHECK_DELAY).toISOString()
+  setTimeout(() => void runCheck().finally(schedule), FIRST_CHECK_DELAY)
   syncBot()
   initUpdater(
     () => {

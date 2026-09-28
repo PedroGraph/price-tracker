@@ -4,11 +4,11 @@ import type { Settings, Status, UpdateState } from '@shared/types'
 import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
-import { Segmented, Toggle } from '../ui'
+import { Segmented, Toggle, UNITS } from '../ui'
 import { Backup } from './Backup'
 import { Sources } from './Sources'
 import { Diagnostics } from './Diagnostics'
-import { UNITS } from './ProductDetail'
+
 
 const INTERVALS = [
   { value: '15', label: '15 min' },

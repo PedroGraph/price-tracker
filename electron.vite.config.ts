@@ -38,6 +38,8 @@ export default defineConfig({
   renderer: {
     root: 'src/renderer',
     plugins: [react(), csp()],
+    // electron-vite doesn't minify by default; the UI bundle is ~3x smaller minified.
+    build: { minify: 'esbuild', cssMinify: true },
     resolve: { alias: { '@shared': resolve('src/shared') } }
   }
 })

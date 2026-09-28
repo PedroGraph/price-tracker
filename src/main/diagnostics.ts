@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { release } from 'node:os'
 import * as db from './db'
 import { getSettings } from './settings'
+import { startup } from './startup'
 import { status } from './tracker'
 
 /**
@@ -20,6 +21,8 @@ export function diagnosticsReport(): string {
     `Every ${s.intervalMinutes} min · threshold ${s.threshold.value} ${s.threshold.unit} · language ${s.language}`,
     `Email ${s.hasResendKey && s.emailTo ? 'on' : 'off'} · Telegram ${s.telegramEnabled && s.telegramChatId ? 'on' : 'off'} · quiet hours ${s.quietEnabled ? `${s.quietStart}-${s.quietEnd}` : 'off'} · summary ${s.digest}`,
     `Update: ${status.update.status}${status.update.error ? ` (${status.update.error})` : ''}`,
+    `Startup (ms): ${Object.entries(startup).map(([k, v]) => `${k} ${v}`).join(' · ')}`,
+    `Memory: ${Math.round(process.memoryUsage().rss / 1048576)} MB (main process)`,
     '',
     `Products (${products.length}):`,
     ...products.map(

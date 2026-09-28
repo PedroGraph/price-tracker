@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, Minus, Package } from 'lucide-react'
 import { buySignal } from '@shared/pricing'
-import type { Product } from '@shared/types'
+import type { Product, ThresholdUnit } from '@shared/types'
 import { useT, type T } from './i18n'
 import { useMoney } from './money'
 
@@ -118,3 +118,9 @@ export function BuySignal({ product, detailed }: { product: Product; detailed?: 
     </span>
   )
 }
+
+export const UNITS: { value: ThresholdUnit; label: string }[] = [
+  { value: 'percent', label: '%' },
+  { value: 'USD', label: 'USD' },
+  { value: 'COP', label: 'COP' }
+]

@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, Moon, RefreshCw, Settings as Gear, Sun, TrendingUp } from 'lucide-react'
 import type { DashboardStats, Product, Settings, Status } from '@shared/types'
 import { LangContext, useT } from './i18n'
 import { MoneyContext, type DisplayCurrency } from './money'
 import { timeAgo, timeUntil } from './ui'
 import { Dashboard } from './views/Dashboard'
-import { ProductDetail } from './views/ProductDetail'
-import { SettingsView } from './views/Settings'
+// Loaded when first opened, so the dashboard shows up without the chart and settings code.
+const ProductDetail = lazy(() => import('./views/ProductDetail').then((m) => ({ default: m.ProductDetail })))
+const SettingsView = lazy(() => import('./views/Settings').then((m) => ({ default: m.SettingsView })))
 
 type View = { name: 'dashboard' } | { name: 'product'; asin: string } | { name: 'settings' }
 type Theme = 'light' | 'dark'
@@ -174,6 +175,7 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
       )}
 
       <main>
+        <Suspense fallback={null}>
         {view.name === 'dashboard' && (
           <Dashboard
             products={products}
@@ -198,6 +200,7 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
         {view.name === 'settings' && settings && (
           <SettingsView settings={settings} status={status} onSaved={setSettings} notify={notify} />
         )}
+        </Suspense>
       </main>
 
       {toast && <div className={toast.error ? 'toast error' : 'toast'}>{toast.text}</div>}

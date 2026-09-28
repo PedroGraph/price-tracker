@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { offerUrl, priceWithCoupon, sellerUrl, thresholdInUsd } from '@shared/pricing'
-import type { PriceReading, Product, Threshold, ThresholdUnit, TrackerEvent } from '@shared/types'
+import type { PriceReading, Product, Threshold, TrackerEvent } from '@shared/types'
 import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
-import { BuySignal, ChangePill, Segmented, Sparkline, Thumb, timeAgo, Toggle } from '../ui'
+import { BuySignal, ChangePill, Segmented, Sparkline, Thumb, timeAgo, Toggle, UNITS } from '../ui'
 
 // English keys, translated where shown.
 const EVENT_LABEL: Record<TrackerEvent['type'], string> = {
@@ -21,11 +21,6 @@ const EVENT_LABEL: Record<TrackerEvent['type'], string> = {
   deal_started: 'Deal started'
 }
 
-export const UNITS: { value: ThresholdUnit; label: string }[] = [
-  { value: 'percent', label: '%' },
-  { value: 'USD', label: 'USD' },
-  { value: 'COP', label: 'COP' }
-]
 
 const run = (iso: string): string => iso.slice(0, 16)
 

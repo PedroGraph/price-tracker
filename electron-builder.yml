@@ -6,6 +6,12 @@ directories:
 files:
   - out/**
   - package.json
+# Chromium ships 55 UI translations (~49 MB); the app is in English and Spanish.
+electronLanguages:
+  - en-US
+  - es
+  - es-419
+compression: maximum
 # Runtime icons (window + tray); icon.ico for the .exe is picked up from buildResources.
 extraResources:
   - from: resources

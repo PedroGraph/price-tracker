@@ -17,10 +17,12 @@ export interface Sealed {
 }
 
 const PARAMS = { n: 2 ** 17, r: 8, p: 1 }
+/** Unicode normalization form, so "ñ" typed two different ways gives the same key. */
+const UNICODE_FORM = 'NFKC'
 export const MIN_PASSWORD = 8
 
-function key(password: string, salt: Buffer, s: { n: number; r: number; p: number }): Buffer {
-  return scryptSync(password.normalize('NFKC'), salt, 32, { N: s.n, r: s.r, p: s.p, maxmem: 256 * s.n * s.r })
+function key(passphrase: string, salt: Buffer, s: { n: number; r: number; p: number }): Buffer {
+  return scryptSync(passphrase.normalize(UNICODE_FORM), salt, 32, { N: s.n, r: s.r, p: s.p, maxmem: 256 * s.n * s.r })
 }
 
 export function seal(plaintext: string, password: string): Sealed {

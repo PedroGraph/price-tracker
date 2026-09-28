@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, session, Tray, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, session, Tray, type IpcMainInvokeEvent } from 'electron'
 import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -7,6 +7,7 @@ import { parseAsin } from '@shared/pricing'
 import type { Settings, Threshold } from '@shared/types'
 import * as db from './db'
 import { maybeSendDigest } from './digest'
+import { diagnosticsReport } from './diagnostics'
 import { cachedRate, currentRate, refreshRate } from './exchange'
 import { flushQueuedAlerts, sendTestEmail } from './notify'
 import { APP_URL, registerAppScheme, serveRenderer } from './appProtocol'
@@ -227,6 +228,9 @@ function registerIpc(): void {
     status.session = 'logged_out'
   })
   handle('tracker:run', () => runCheck())
+  handle('diagnostics:runs', () => db.listRuns(30))
+  // Copied from the main process: the page itself has no clipboard permission.
+  handle('diagnostics:copy', () => clipboard.writeText(diagnosticsReport()))
   handle('update:check', () => checkForUpdates())
   handle('update:install', () => {
     quitting = true

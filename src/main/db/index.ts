@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import { app } from 'electron'
 import { join } from 'node:path'
-import type { DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent } from '@shared/types'
+import type { RunRecord, DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent } from '@shared/types'
 
 let db: DatabaseSync
 
@@ -59,7 +59,17 @@ const MIGRATIONS = [
   `ALTER TABLE products ADD COLUMN source TEXT NOT NULL DEFAULT 'cart';`,
   `ALTER TABLE products ADD COLUMN coupon TEXT; ALTER TABLE products ADD COLUMN deal TEXT;`,
   `ALTER TABLE products ADD COLUMN last_import_fees REAL;`,
-  `ALTER TABLE price_history ADD COLUMN seller_id TEXT; ALTER TABLE products ADD COLUMN last_seller_id TEXT;`
+  `ALTER TABLE price_history ADD COLUMN seller_id TEXT; ALTER TABLE products ADD COLUMN last_seller_id TEXT;`,
+  `CREATE TABLE runs (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     started_at TEXT NOT NULL,
+     duration_ms INTEGER NOT NULL,
+     outcome TEXT NOT NULL,
+     message TEXT,
+     checked INTEGER NOT NULL,
+     unreadable INTEGER NOT NULL,
+     alerts INTEGER NOT NULL
+   );`
 ]
 
 export function openDb(file = join(app.getPath('userData'), 'tracker.db')): void {
@@ -378,6 +388,27 @@ export function getEvents(asin: string): TrackerEvent[] {
       createdAt: r.created_at as string
     })
   )
+}
+
+/** Keeps the last 200 runs. */
+export function addRun(r: Omit<RunRecord, 'id'>): void {
+  db.prepare(
+    'INSERT INTO runs (started_at, duration_ms, outcome, message, checked, unreadable, alerts) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(r.startedAt, r.durationMs, r.outcome, r.message, r.checked, r.unreadable, r.alerts)
+  db.prepare('DELETE FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT 200)').run()
+}
+
+export function listRuns(limit = 30): RunRecord[] {
+  return (db.prepare('SELECT * FROM runs ORDER BY id DESC LIMIT ?').all(limit) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as number,
+    startedAt: r.started_at as string,
+    durationMs: r.duration_ms as number,
+    outcome: r.outcome as RunRecord['outcome'],
+    message: (r.message as string) ?? null,
+    checked: r.checked as number,
+    unreadable: r.unreadable as number,
+    alerts: r.alerts as number
+  }))
 }
 
 export function getSetting<T>(key: string, fallback: T): T {

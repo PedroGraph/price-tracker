@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { DashboardStats, ExchangeRate, PriceReading, Product, Settings, Status, Threshold, TrackerEvent } from '@shared/types'
+import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, Settings, Status, Threshold, TrackerEvent } from '@shared/types'
 
 /** The only surface the UI can reach. Each method maps to one IPC channel. */
 const api = {
@@ -29,6 +29,8 @@ const api = {
   openAmazon: (): Promise<void> => ipcRenderer.invoke('amazon:login'),
   signOut: (): Promise<void> => ipcRenderer.invoke('amazon:logout'),
   runNow: (): Promise<void> => ipcRenderer.invoke('tracker:run'),
+  listRuns: (): Promise<RunRecord[]> => ipcRenderer.invoke('diagnostics:runs'),
+  copyDiagnostics: (): Promise<void> => ipcRenderer.invoke('diagnostics:copy'),
   checkForUpdates: (): Promise<void> => ipcRenderer.invoke('update:check'),
   installUpdate: (): Promise<void> => ipcRenderer.invoke('update:install'),
   onStatus: (cb: (s: Status) => void): (() => void) => {

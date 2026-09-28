@@ -5,6 +5,7 @@ import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
 import { Segmented, Toggle } from '../ui'
+import { Diagnostics } from './Diagnostics'
 import { UNITS } from './ProductDetail'
 
 const INTERVALS = [
@@ -470,6 +471,7 @@ export function SettingsView({
           )}
         </div>
       </section>
+      <Diagnostics status={status} notify={notify} />
     </div>
   )
 }

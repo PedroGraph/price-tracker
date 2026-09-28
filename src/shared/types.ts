@@ -55,6 +55,18 @@ export interface Product {
   lowest30: number | null
 }
 
+/** One tracking run, for the diagnostics list. */
+export interface RunRecord {
+  id: number
+  startedAt: string
+  durationMs: number
+  outcome: 'ok' | 'broken' | 'session' | 'error'
+  message: string | null
+  checked: number
+  unreadable: number
+  alerts: number
+}
+
 export interface DashboardStats {
   tracked: number
   droppedCount: number

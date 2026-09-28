@@ -37,6 +37,9 @@ export function schedule(): void {
   emit()
 }
 
+/** Numbers for the diagnostics log, filled in by track(). */
+let counts = { checked: 0, unreadable: 0, alerts: 0 }
+
 /** A check asked for while one is running (e.g. a product was just added) runs right after it. */
 let rerunRequested = false
 
@@ -50,7 +53,16 @@ export async function runCheck(): Promise<void> {
   emit()
 
   status.exchangeRate = (await refreshRate()) ?? cachedRate()
+  const startedAt = new Date()
+  counts = { checked: 0, unreadable: 0, alerts: 0 }
   const outcome = await track()
+  db.addRun({
+    startedAt: startedAt.toISOString(),
+    durationMs: Date.now() - startedAt.getTime(),
+    outcome: outcome.kind,
+    message: outcome.kind === 'ok' ? null : outcome.kind === 'broken' ? outcome.reason : outcome.message,
+    ...counts
+  })
 
   if (outcome.kind === 'ok') {
     failedRuns = 0
@@ -171,6 +183,7 @@ async function track(): Promise<RunOutcome> {
     return { kind: 'error', message: `Sending alerts failed: ${err instanceof Error ? err.message : String(err)}` }
   }
 
+  counts = { checked, unreadable: unreadable.length, alerts: alerts.length }
   if (checked > 0 && unreadable.length === checked) {
     return { kind: 'broken', reason: `Product pages: no price or availability found (${unreadable.join(', ')})` }
   }

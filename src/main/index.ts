@@ -12,7 +12,7 @@ import { cachedRate, currentRate, refreshRate } from './exchange'
 import { flushQueuedAlerts, sendTestEmail } from './notify'
 import { APP_URL, registerAppScheme, serveRenderer } from './appProtocol'
 import { mark } from './startup'
-import { amazonSession, clearAmazonSession, flushAmazonSession, openAmazonWindow } from './scraper/amazon'
+import { amazonSession, clearAmazonSession, flushAmazonSession, openAmazonWindow, Scraper } from './scraper/amazon'
 import { denyPermissions, installGlobalGuards, isTrustedSender, openExternal, reencryptCookies } from './security'
 import { getSettings, saveSettings, setResendKey, setSecret } from './settings'
 import { botName, sendTelegramTest } from './notify/telegram'
@@ -222,6 +222,22 @@ function registerIpc(): void {
   })
   handle('amazon:login', async () => {
     await openAmazonWindow(win ?? undefined)
+    void runCheck()
+  })
+  // Search runs in its own hidden window, so it works while a check is running.
+  handle('amazon:search', async (_e, query: unknown) => {
+    if (typeof query !== 'string' || !query.trim() || query.length > 200) throw new Error('Invalid search.')
+    const scraper = new Scraper()
+    try {
+      return await scraper.search(query.trim(), currentRate())
+    } finally {
+      scraper.close()
+    }
+  })
+  // A product page, to add it to the cart or look closer; anything added gets tracked on the next check.
+  handle('amazon:product', async (_e, asin: unknown) => {
+    if (typeof asin !== 'string' || !/^[A-Z0-9]{10}$/.test(asin)) throw new Error('Invalid ASIN.')
+    await openAmazonWindow(win ?? undefined, asin)
     void runCheck()
   })
   handle('amazon:logout', async () => {

@@ -70,6 +70,17 @@ export interface RunRecord {
   alerts: number
 }
 
+/** One product from an Amazon search, shown in the app. */
+export interface SearchResult {
+  asin: string
+  title: string
+  image: string | null
+  price: number | null
+  rating: string | null
+  reviews: string | null
+  sponsored: boolean
+}
+
 export type ProductSource = 'cart' | 'saved' | 'wishlist' | 'manual'
 
 export interface DashboardStats {

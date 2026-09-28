@@ -222,3 +222,41 @@ export function extractWishlist(): RawWishlist {
     items
   }
 }
+
+export interface RawSearchResult {
+  asin: string
+  title: string
+  image: string | null
+  priceText: string | null
+  rating: string | null
+  reviews: string | null
+  sponsored: boolean
+}
+
+/** Results of an Amazon search page (/s?k=…). */
+export function extractSearch(): PageFlags & { results: RawSearchResult[]; found: boolean } {
+  const text = (el: Element | null | undefined): string | null => el?.textContent?.replace(/\s+/g, ' ').trim() || null
+  const captcha = !!document.querySelector('form[action*="validateCaptcha"]')
+  const results: RawSearchResult[] = []
+  const seen = new Set<string>()
+  document.querySelectorAll('div[data-component-type="s-search-result"][data-asin]').forEach((row) => {
+    const asin = row.getAttribute('data-asin')
+    if (!asin || !/^[A-Z0-9]{10}$/.test(asin) || seen.has(asin)) return
+    seen.add(asin)
+    const img = row.querySelector('img.s-image')
+    const src = img?.getAttribute('src') ?? null
+    results.push({
+      asin,
+      title: text(row.querySelector('h2 span')) ?? text(row.querySelector('h2')) ?? asin,
+      image: src && /^https:/.test(src) ? src : null,
+      priceText: text(row.querySelector('.a-price:not([data-a-strike]) .a-offscreen')),
+      rating: text(row.querySelector('.a-icon-star-small .a-icon-alt, .a-icon-star-mini .a-icon-alt, i[class*="a-star"] .a-icon-alt')),
+      reviews:
+        row.querySelector('a[href*="customerReviews"] span')?.textContent?.replace(/[^\d.,KkMm]/g, '') || null,
+      sponsored: !!row.querySelector('.puis-sponsored-label-text, .s-sponsored-label-text, [aria-label*="Sponsored"], [aria-label*="Patrocinado"]')
+    })
+  })
+  // The search page renders its result grid even with zero matches.
+  const found = !!document.querySelector('.s-main-slot, .s-result-list')
+  return { loggedOut: false, captcha, results, found }
+}

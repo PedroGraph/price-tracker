@@ -3,7 +3,7 @@ import { keepOnAmazon } from '../security'
 import { parsePrice } from '@shared/pricing'
 import type { SessionState } from '@shared/types'
 import { wishlistId } from '@shared/urls'
-import { extractCart, extractOffers, extractProduct, extractWishlist, isUnavailable, type PageFlags } from './extractors'
+import { extractCart, extractOffers, extractProduct, extractSearch, extractWishlist, isUnavailable, type PageFlags } from './extractors'
 
 const PARTITION = 'persist:amazon'
 const BASE = 'https://www.amazon.com'
@@ -29,13 +29,16 @@ const webPreferences = (): Electron.WebPreferences => ({
   devTools: !app.isPackaged
 })
 
-/** Opens a visible Amazon window. The user signs in there; cookies persist on disk. */
-export function openAmazonWindow(parent?: BrowserWindow): Promise<void> {
+/**
+ * Opens a visible Amazon window with the app's session (cookies persist on disk):
+ * the cart to sign in, or a product page.
+ */
+export function openAmazonWindow(parent?: BrowserWindow, asin?: string): Promise<void> {
   return new Promise((resolve) => {
-    const win = new BrowserWindow({ width: 1100, height: 850, parent, title: 'Amazon — sign in', webPreferences: webPreferences() })
+    const win = new BrowserWindow({ width: 1100, height: 850, parent, title: asin ? 'Amazon' : 'Amazon — sign in', webPreferences: webPreferences() })
     win.setMenuBarVisibility(false)
     keepOnAmazon(win.webContents)
-    win.loadURL(`${BASE}/gp/cart/view.html`)
+    win.loadURL(asin ? `${BASE}/dp/${asin}` : `${BASE}/gp/cart/view.html`)
     // Write the new sign-in cookies to disk right away so they survive a crash or forced exit.
     win.on('closed', () => {
       amazonSession().flushStorageData()
@@ -104,6 +107,12 @@ export class Scraper {
       if (page.items.length === before) break
     }
     return page.items.map((i) => ({ ...i, url: `${BASE}/dp/${i.asin}` }))
+  }
+
+  async search(query: string, copPerUsd: number | null) {
+    const page = await this.run(`${BASE}/s?k=${encodeURIComponent(query)}`, extractSearch, false)
+    if (!page.found) throw new PageChangedError('Search page: the results list was not found')
+    return page.results.map(({ priceText, ...r }) => ({ ...r, price: parsePrice(priceText, copPerUsd) }))
   }
 
   async product(asin: string, copPerUsd: number | null) {

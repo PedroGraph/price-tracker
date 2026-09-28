@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react'
-import { ChevronRight, Plus, Search, ShoppingCart } from 'lucide-react'
+import { Check, ChevronRight, ExternalLink, Loader2, Plus, Search, ShoppingCart, Star } from 'lucide-react'
 import type { Notify } from '../App'
-import type { DashboardStats, Product, Status } from '@shared/types'
+import type { DashboardStats, Product, SearchResult, Status } from '@shared/types'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
 import { BuySignal, ChangePill, Sparkline, Thumb, timeAgo } from '../ui'
 
 type Filter = 'all' | 'down' | 'up' | 'out'
 
-const movement = (p: Product): number | null =>
+const errorText = (e: unknown): string =>
+  e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
+
+const movement =(p: Product): number | null =>
   p.firstPrice !== null && p.lastPrice !== null ? Math.round((p.lastPrice - p.firstPrice) * 100) / 100 : null
 
 // Labels are English keys, translated where they're shown.
@@ -38,15 +41,30 @@ export function Dashboard({
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState(false)
   const [link, setLink] = useState('')
+  const [amazon, setAmazon] = useState<{ query: string; results: SearchResult[] | null; error?: string } | null>(null)
 
-  const add = async (): Promise<void> => {
+  const add = async (input = link): Promise<void> => {
     try {
-      const asin = await window.api.addProduct(link)
-      setLink('')
-      setAdding(false)
+      const asin = await window.api.addProduct(input)
+      if (input === link) {
+        setLink('')
+        setAdding(false)
+      }
       notify(t('Tracking {asin}. Its price appears after this check.', { asin }))
     } catch (e) {
-      notify(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e), true)
+      notify(errorText(e), true)
+    }
+  }
+
+  const searchAmazon = async (): Promise<void> => {
+    const q = query.trim()
+    if (!q) return
+    setAmazon({ query: q, results: null })
+    try {
+      const results = await window.api.searchAmazon(q)
+      setAmazon((cur) => (cur?.query === q ? { query: q, results } : cur))
+    } catch (e) {
+      setAmazon((cur) => (cur?.query === q ? { query: q, results: [], error: errorText(e) } : cur))
     }
   }
 
@@ -135,7 +153,19 @@ export function Dashboard({
             </button>
             <label className="search">
               <Search size={16} />
-              <input type="text" placeholder={t('Search products…')} value={query} onChange={(e) => setQuery(e.target.value)} />
+              <input
+                type="text"
+                placeholder={t('Search products…')}
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value)
+                  if (!e.target.value.trim()) setAmazon(null)
+                }}
+                title={t('Press Enter to search on Amazon')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void searchAmazon()
+                }}
+              />
             </label>
           </div>
 
@@ -159,6 +189,21 @@ export function Dashboard({
               )
           )}
           {visible.length === 0 && <p className="muted empty">{t('Nothing matches this filter.')}</p>}
+          {query.trim() && amazon?.query !== query.trim() && (
+            <div className="amazon-search">
+              <span className="muted">{t('Looking for something new?')}</span>
+              <button className="btn" onClick={() => void searchAmazon()}>
+                <Search size={15} /> {t('Search “{q}” on Amazon', { q: query.trim() })}
+              </button>
+            </div>
+          )}
+          {amazon && (
+            <AmazonResults
+              {...amazon}
+              tracked={new Set(products.map((p) => p.asin))}
+              onTrack={(asin) => void add(asin)}
+            />
+          )}
         </>
       )}
     </>
@@ -229,5 +274,75 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
         </button>
       </div>
     </article>
+  )
+}
+
+/** Amazon search results, as a list: track one here or open it on Amazon. */
+function AmazonResults({
+  query,
+  results,
+  error,
+  tracked,
+  onTrack
+}: {
+  query: string
+  results: SearchResult[] | null
+  error?: string
+  tracked: Set<string>
+  onTrack: (asin: string) => void
+}) {
+  const { fmt } = useMoney()
+  const { t } = useT()
+  return (
+    <section className="group">
+      <h3 className="group-title">
+        {t('On Amazon: “{q}”', { q: query })}
+        {results && results.length > 0 && <span className="count">· {results.length}</span>}
+      </h3>
+      {results === null ? (
+        <p className="muted searching">
+          <Loader2 size={16} className="spin" /> {t('Searching Amazon…')}
+        </p>
+      ) : error ? (
+        <p className="muted">{error}</p>
+      ) : results.length === 0 ? (
+        <p className="muted">{t('Amazon found nothing for this search.')}</p>
+      ) : (
+        <div className="card result-list">
+          {results.map((r) => (
+            <div key={r.asin} className="result">
+              <Thumb src={r.image} />
+              <div className="info">
+                <h4 title={r.title}>{r.title}</h4>
+                <div className="meta">
+                  {r.rating && (
+                    <span>
+                      <Star size={13} className="star" /> {r.rating.split(' ')[0]}
+                      {r.reviews && <span className="faint"> ({r.reviews})</span>}
+                    </span>
+                  )}
+                  {r.sponsored && <span className="badge">{t('Sponsored')}</span>}
+                </div>
+              </div>
+              <span className="price">{r.price !== null ? fmt(r.price) : '—'}</span>
+              <div className="actions">
+                <button className="btn" title={t('Open on Amazon')} onClick={() => void window.api.openOnAmazon(r.asin)}>
+                  <ExternalLink size={15} />
+                </button>
+                {tracked.has(r.asin) ? (
+                  <span className="tracked">
+                    <Check size={15} /> {t('Tracking')}
+                  </span>
+                ) : (
+                  <button className="btn primary" onClick={() => onTrack(r.asin)}>
+                    <Plus size={15} /> {t('Track')}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }

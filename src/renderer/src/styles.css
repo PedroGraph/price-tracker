@@ -293,3 +293,16 @@ code { font-family: var(--mono); font-size: 0.92em; }
 .group-title { display: flex; align-items: center; gap: 10px; margin: 26px 0 12px; font-size: 15px; font-weight: 600; }
 .group:first-of-type .group-title { margin-top: 8px; }
 .group-title .count { color: var(--muted); font-weight: 500; }
+.amazon-search { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 22px 0 6px; flex-wrap: wrap; }
+.searching { display: flex; align-items: center; gap: 8px; }
+.result-list { padding: 0; overflow: hidden; }
+.result { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 18px; padding: 14px 20px; border-top: 1px solid var(--line); }
+.result:first-child { border-top: none; }
+.result .info { min-width: 0; }
+.result h4 { margin: 0 0 6px; font-size: 14px; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.result .meta { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.result .star { color: #e3a008; fill: #e3a008; vertical-align: -2px; }
+.result .price { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; white-space: nowrap; }
+.result .actions { display: flex; align-items: center; gap: 8px; }
+.result .tracked { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: 14px; font-weight: 600; padding: 0 10px; }
+@media (max-width: 640px) { .result { grid-template-columns: auto 1fr; } .result .price, .result .actions { grid-column: 2; } }

@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, Minus, Package } from 'lucide-react'
-import { buySignal } from '@shared/pricing'
+import { buySignal, formatCop, formatUsd, landedTotal } from '@shared/pricing'
 import type { Product, ThresholdUnit } from '@shared/types'
 import { useT, type T } from './i18n'
 import { useMoney } from './money'
@@ -116,6 +116,21 @@ export function BuySignal({ product, detailed }: { product: Product; detailed?: 
       )}
       {detailed && verdict === 'unknown' && <small> · {t('needs a few days of checks')}</small>}
     </span>
+  )
+}
+
+/** "Delivered: $1,120.40 · COP 4.4M": price + shipping + import fees, shown when there is something to add. */
+export function DeliveredTotal({ product: p }: { product: Product }) {
+  const { t } = useT()
+  const { rate } = useMoney()
+  const total = landedTotal(p.lastPrice, p.lastShipping, p.lastImportFees)
+  if (total === null || total === p.lastPrice) return null
+  return (
+    <div className="delivered" title={t('Price + shipping + import fees')}>
+      <span>{t('Delivered')}</span>
+      <strong>{formatUsd(total)}</strong>
+      {rate !== null && <span className="muted">≈ {formatCop(total * rate)}</span>}
+    </div>
   )
 }
 

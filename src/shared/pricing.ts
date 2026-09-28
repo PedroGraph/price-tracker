@@ -180,3 +180,12 @@ export function formatUsd(n: number | null): string {
 export function formatCop(n: number | null): string {
   return n === null ? '—' : n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 }
+
+/**
+ * What the product really costs delivered: price + shipping + import fees deposit (USD).
+ * Null without a price; missing shipping or fees count as zero.
+ */
+export function landedTotal(price: number | null, shipping: number | null, importFees: number | null): number | null {
+  if (price === null) return null
+  return Math.round((price + (shipping ?? 0) + (importFees ?? 0)) * 100) / 100
+}

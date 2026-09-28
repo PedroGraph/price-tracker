@@ -314,6 +314,13 @@ export function SettingsView({
           />
           {equivalent && <span className="muted">{equivalent}</span>}
         </div>
+        <div className="toggle-row" style={{ marginTop: 16 }}>
+          <div>
+            <strong>{t('Alert on the delivered total')}</strong>
+            <small>{t('Compare price + shipping + import fees, what you really pay, instead of the price alone.')}</small>
+          </div>
+          <Toggle on={draft.alertOnTotal} onChange={(v) => save({ alertOnTotal: v })} label={t('Alert on the delivered total')} />
+        </div>
       </section>
 
       <section className="card">

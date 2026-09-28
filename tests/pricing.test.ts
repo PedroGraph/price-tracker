@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { toTelegramHtml } from '../src/main/notify/format'
-import { buySignal, evaluateReading, extraEvents, parseAsin, parsePrice, priceWithCoupon, promoEvents, thresholdInUsd } from '../src/shared/pricing'
+import { buySignal, evaluateReading, extraEvents, landedTotal, parseAsin, parsePrice, priceWithCoupon, promoEvents, thresholdInUsd } from '../src/shared/pricing'
 
 const pct5 = { unit: 'percent' as const, value: 5 }
 const base = { basePrice: 100, wasAvailable: true, available: true, threshold: pct5, copPerUsd: 4000 }
@@ -138,5 +138,13 @@ describe('buySignal', () => {
     expect(buySignal({ ...month, current: 95 })).toBe('low') // 5% under the average
     expect(buySignal({ ...month, current: 100 })).toBe('normal')
     expect(buySignal({ ...month, current: 105 })).toBe('high')
+  })
+})
+
+describe('landedTotal', () => {
+  it('adds shipping and import fees, counting missing ones as zero', () => {
+    expect(landedTotal(100, 12.5, 30.25)).toBe(142.75)
+    expect(landedTotal(100, null, null)).toBe(100)
+    expect(landedTotal(null, 10, 10)).toBeNull()
   })
 })

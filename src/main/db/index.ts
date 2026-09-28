@@ -293,6 +293,16 @@ export function addManualProduct(asin: string): void {
   ).run(asin, asin, `https://www.amazon.com/dp/${asin}`, now())
 }
 
+/** Sets every base price to the current price, or to the delivered total when `total` is on. */
+export function rebaseAll(total: boolean): void {
+  db.prepare(
+    total
+      ? `UPDATE products SET base_price = CASE WHEN last_price IS NULL THEN base_price
+           ELSE ROUND(last_price + COALESCE(last_shipping, 0) + COALESCE(last_import_fees, 0), 2) END`
+      : `UPDATE products SET base_price = COALESCE(last_price, base_price)`
+  ).run()
+}
+
 /** Stops tracking a product; its history is kept. */
 export function deactivateProduct(asin: string): void {
   db.prepare('UPDATE products SET active = 0 WHERE asin = ?').run(asin)

@@ -1,7 +1,7 @@
 import { app, safeStorage } from 'electron'
 import { translate } from '@shared/i18n'
 import type { Settings } from '@shared/types'
-import { getSetting, setSetting } from './db'
+import { getSetting, rebaseAll, setSetting } from './db'
 
 /** Fields derived from stored secrets; never saved as plain settings. */
 type Derived = 'hasResendKey' | 'hasTelegramToken'
@@ -23,7 +23,8 @@ const DEFAULTS: Omit<Settings, Derived | 'language'> = {
   digestHour: 8,
   pausedUntil: null,
   trackSavedForLater: false,
-  wishlists: []
+  wishlists: [],
+  alertOnTotal: false
 }
 
 const OLD_DEFAULT_FROM = 'Amazon Price Tracker <onboarding@resend.dev>'
@@ -44,7 +45,10 @@ export function getSettings(): Settings {
 
 export function saveSettings(patch: Partial<Settings>): Settings {
   const { hasResendKey: _r, hasTelegramToken: _t, ...rest } = patch
-  const next = { ...getSettings(), ...rest }
+  const prev = getSettings()
+  const next = { ...prev, ...rest }
+  // Switching what alerts compare restarts every base from the current value, so it doesn't fire at once.
+  if (next.alertOnTotal !== prev.alertOnTotal) rebaseAll(next.alertOnTotal)
   if (!(next.intervalMinutes >= 15)) next.intervalMinutes = 15
   const { hasResendKey: _r2, hasTelegramToken: _t2, ...stored } = next
   setSetting('settings', stored)

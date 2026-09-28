@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { app } from 'electron'
-import { evaluateReading, extraEvents, promoEvents } from '@shared/pricing'
+import { evaluateReading, extraEvents, landedTotal, promoEvents } from '@shared/pricing'
 import type { Status } from '@shared/types'
 import * as db from './db'
 import { cachedRate, currentRate, refreshRate } from './exchange'
@@ -151,11 +151,13 @@ async function track(): Promise<RunOutcome> {
         }
       }
       const available = page.available || (product.trackOffers && best.price !== null)
+      // Up/down alerts compare the price, or the delivered total when that's chosen in Settings.
+      const compared = settings.alertOnTotal ? landedTotal(best.price, best.shipping, importFees) : best.price
 
       const result = evaluateReading({
         basePrice: product.basePrice,
         wasAvailable: product.available,
-        price: available ? best.price : null,
+        price: available ? compared : null,
         available,
         threshold: product.threshold ?? settings.threshold,
         copPerUsd: rate
@@ -169,9 +171,11 @@ async function track(): Promise<RunOutcome> {
         baseEvents: result.events
       })
       for (const type of [...result.events, ...extra, ...promos]) {
-        db.addEvent(product.asin, type, product.basePrice, best.price)
+        const moved = type === 'price_up' || type === 'price_down' || type === 'tracking_started'
+        const newPrice = moved ? compared : best.price
+        db.addEvent(product.asin, type, product.basePrice, newPrice)
         if (type !== 'tracking_started') {
-          alerts.push({ product: { ...product, coupon, deal }, type, oldPrice: product.basePrice, newPrice: best.price, ...best })
+          alerts.push({ product: { ...product, coupon, deal }, type, oldPrice: product.basePrice, ...best, newPrice })
         }
       }
       db.updateProductState(product.asin, {

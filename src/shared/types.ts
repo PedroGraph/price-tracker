@@ -189,6 +189,8 @@ export interface Settings {
   trackSavedForLater: boolean
   /** Amazon wishlist links whose items are tracked. */
   wishlists: string[]
+  /** Price up/down alerts compare the delivered total (price + shipping + import fees) instead of the price alone. */
+  alertOnTotal: boolean
 }
 
 export interface UpdateState {

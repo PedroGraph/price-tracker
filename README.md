@@ -15,6 +15,8 @@ A Windows desktop app (Electron + React + TypeScript) that watches the prices of
 - **Coupons and deals**: alerts when a coupon or a limited-time deal shows up, with the price after the coupon.
 - **Good time to buy?** Each product says whether its price is low, normal or high compared with the last 30 days.
 - **English or Spanish** interface and alerts (follows the Windows language until you pick one).
+- **Backup and restore** everything (products, full history, settings) in one file. Keys can be included, and then the file is always encrypted with your password (AES-256-GCM, scrypt). The Amazon session is never included.
+- **Diagnostics:** the latest checks and a copyable report without personal data.
 - **Export** any product's price history, or all of it, to CSV.
 - **Track products outside your cart** by pasting a product link (including `amzn.to` links) or an ASIN.
 

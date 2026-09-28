@@ -276,3 +276,8 @@ code { font-family: var(--mono); font-size: 0.92em; }
 }
 .ok-text { color: var(--teal); }
 .bad-text { color: var(--red); }
+.backup-panel { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 6px; }
+.risk { display: flex; gap: 12px; margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--amber-soft); color: var(--amber); }
+.risk svg { flex: none; margin-top: 2px; }
+.risk strong { display: block; font-size: 14px; }
+.risk p { margin: 4px 0 0; font-size: 13px; color: var(--text); opacity: 0.85; }

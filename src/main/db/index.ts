@@ -390,6 +390,51 @@ export function getEvents(asin: string): TrackerEvent[] {
   )
 }
 
+// ---- backups
+
+/** Tables in a backup, in insert order (products first: the others point to it). */
+const BACKUP_TABLES = ['products', 'price_history', 'events', 'settings'] as const
+/** Settings that are secrets, or only make sense on this machine. */
+const LOCAL_SETTINGS = ['resendKey', 'telegramToken', 'cookiesReencrypted', 'health', 'queuedAlerts']
+
+export function schemaVersion(): number {
+  return (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
+}
+
+export function dumpForBackup(): Record<string, Record<string, unknown>[]> {
+  const out: Record<string, Record<string, unknown>[]> = {}
+  for (const table of BACKUP_TABLES) {
+    const rows = db.prepare(`SELECT * FROM ${table}`).all() as Record<string, unknown>[]
+    out[table] = table === 'settings' ? rows.filter((r) => !LOCAL_SETTINGS.includes(r.key as string)) : rows.map((r) => ({ ...r }))
+  }
+  return out
+}
+
+/**
+ * Replaces the data with a backup's, in one transaction. Only columns that exist here are
+ * copied, so backups from older versions still load. Local-only settings are kept.
+ */
+export function restoreFromBackup(data: Record<string, Record<string, unknown>[]>): void {
+  transaction(() => {
+    for (const table of [...BACKUP_TABLES].reverse()) {
+      if (table === 'settings') {
+        db.prepare(`DELETE FROM settings WHERE key NOT IN (${LOCAL_SETTINGS.map(() => '?').join(',')})`).run(...LOCAL_SETTINGS)
+      } else db.exec(`DELETE FROM ${table}`)
+    }
+    for (const table of BACKUP_TABLES) {
+      const columns = new Set((db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name))
+      for (const row of data[table] ?? []) {
+        if (table === 'settings' && LOCAL_SETTINGS.includes(row.key as string)) continue
+        const keys = Object.keys(row).filter((k) => columns.has(k))
+        if (keys.length === 0) continue
+        db.prepare(`INSERT OR REPLACE INTO ${table} (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`).run(
+          ...keys.map((k) => row[k] as string | number | null)
+        )
+      }
+    }
+  })
+}
+
 /** Keeps the last 200 runs. */
 export function addRun(r: Omit<RunRecord, 'id'>): void {
   db.prepare(

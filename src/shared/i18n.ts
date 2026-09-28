@@ -148,6 +148,47 @@ const ES: Record<string, string> = {
   'BEST PRICE': 'MEJOR PRECIO',
   'View offer': 'Ver oferta',
   Diagnostics: 'Diagnóstico',
+  Backup: 'Copia de seguridad',
+  'Products, full price history, events and settings in one file, to move to another PC or recover after reinstalling.':
+    'Productos, historial completo de precios, eventos y configuración en un archivo, para pasar a otro PC o recuperar todo tras reinstalar.',
+  'Create backup': 'Crear copia',
+  Restore: 'Restaurar',
+  'Include keys (Resend, Telegram)': 'Incluir claves (Resend, Telegram)',
+  'So you don’t have to set up email and Telegram again after restoring.':
+    'Para no tener que configurar el email y Telegram otra vez al restaurar.',
+  'Risk: anyone with this file and its password can use your keys': 'Riesgo: quien tenga este archivo y su contraseña puede usar tus claves',
+  'They could send email from your Resend account and write as your Telegram bot. The file is encrypted with the password below: use a strong one you don’t use anywhere else, keep the file somewhere private and never share it. If it leaks, create new keys in Resend and @BotFather.':
+    'Podría enviar correos desde tu cuenta de Resend y escribir como tu bot de Telegram. El archivo se cifra con la contraseña de abajo: usa una fuerte que no uses en otro lado, guarda el archivo en un lugar privado y nunca lo compartas. Si se filtra, crea claves nuevas en Resend y en @BotFather.',
+  'Protect with a password': 'Proteger con contraseña',
+  'Optional without keys. Your price history can say a lot about what you buy.':
+    'Opcional sin claves. Tu historial de precios dice mucho de lo que compras.',
+  'Password (8+ characters)': 'Contraseña (8+ caracteres)',
+  'Repeat the password': 'Repite la contraseña',
+  'At least 8 characters.': 'Mínimo 8 caracteres.',
+  'The passwords don’t match.': 'Las contraseñas no coinciden.',
+  'There is no way to recover a forgotten password: without it, the backup can’t be opened.':
+    'No hay forma de recuperar una contraseña olvidada: sin ella, la copia no se puede abrir.',
+  'The Amazon session is never included: after restoring, sign in to Amazon again.':
+    'La sesión de Amazon nunca se incluye: después de restaurar, vuelve a iniciar sesión en Amazon.',
+  'Saving…': 'Guardando…',
+  'Save backup': 'Guardar copia',
+  'Backup saved in {path}': 'Copia guardada en {path}',
+  'Backup from {date}': 'Copia del {date}',
+  '{products} products, {readings} price readings': '{products} productos, {readings} lecturas de precio',
+  'includes keys': 'incluye claves',
+  'Backup password': 'Contraseña de la copia',
+  'This replaces all your current data': 'Esto reemplaza todos tus datos actuales',
+  'Products, history and settings on this PC are overwritten with the backup’s. Create a backup first if you want to keep them.':
+    'Los productos, el historial y la configuración de este PC se sobrescriben con los de la copia. Crea una copia antes si quieres conservarlos.',
+  'Restoring…': 'Restaurando…',
+  'Restore backup': 'Restaurar copia',
+  'Backup restored. Reloading…': 'Copia restaurada. Recargando…',
+  'A password is required to include keys.': 'Para incluir las claves hace falta una contraseña.',
+  "This isn't a Price Tracker backup.": 'Este archivo no es una copia de Price Tracker.',
+  'This backup comes from a newer version. Update the app first.': 'Esta copia es de una versión más nueva. Actualiza la app primero.',
+  'This backup is protected with a password.': 'Esta copia está protegida con contraseña.',
+  'Wrong password, or the file was modified.': 'Contraseña incorrecta, o el archivo fue modificado.',
+  'Unknown backup encryption.': 'Cifrado de copia desconocido.',
   'The latest checks. The report has no email, keys or Telegram chat.':
     'Las últimas revisiones. El reporte no incluye tu email, claves ni chat de Telegram.',
   'Copy report': 'Copiar reporte',

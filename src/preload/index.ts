@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { BackupInfo } from '../main/backup'
 import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, Settings, Status, Threshold, TrackerEvent } from '@shared/types'
 
 /** The only surface the UI can reach. Each method maps to one IPC channel. */
@@ -31,6 +32,12 @@ const api = {
   runNow: (): Promise<void> => ipcRenderer.invoke('tracker:run'),
   listRuns: (): Promise<RunRecord[]> => ipcRenderer.invoke('diagnostics:runs'),
   copyDiagnostics: (): Promise<void> => ipcRenderer.invoke('diagnostics:copy'),
+  /** Save dialog + write; resolves to the saved path or null when cancelled. */
+  createBackup: (opts: { includeKeys: boolean; password: string | null }): Promise<string | null> =>
+    ipcRenderer.invoke('backup:create', opts),
+  /** Open dialog; resolves to what the file contains, or null when cancelled. */
+  pickBackup: (): Promise<BackupInfo | null> => ipcRenderer.invoke('backup:pick'),
+  restoreBackup: (password: string | null): Promise<BackupInfo> => ipcRenderer.invoke('backup:restore', password),
   checkForUpdates: (): Promise<void> => ipcRenderer.invoke('update:check'),
   installUpdate: (): Promise<void> => ipcRenderer.invoke('update:install'),
   onStatus: (cb: (s: Status) => void): (() => void) => {

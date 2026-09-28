@@ -5,6 +5,7 @@ import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
 import { Segmented, Toggle } from '../ui'
+import { Backup } from './Backup'
 import { Diagnostics } from './Diagnostics'
 import { UNITS } from './ProductDetail'
 
@@ -416,6 +417,8 @@ export function SettingsView({
           {t('Export CSV')}
         </button>
       </section>
+
+      <Backup notify={notify} />
 
       <section className="card">
         <h3>{t('App')}</h3>

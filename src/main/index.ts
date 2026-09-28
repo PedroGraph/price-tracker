@@ -8,6 +8,7 @@ import type { Settings, Threshold } from '@shared/types'
 import * as db from './db'
 import { maybeSendDigest } from './digest'
 import { diagnosticsReport } from './diagnostics'
+import { inspectBackup, restoreBackup, writeBackup } from './backup'
 import { cachedRate, currentRate, refreshRate } from './exchange'
 import { flushQueuedAlerts, sendTestEmail } from './notify'
 import { APP_URL, registerAppScheme, serveRenderer } from './appProtocol'
@@ -229,6 +230,37 @@ function registerIpc(): void {
   })
   handle('tracker:run', () => runCheck())
   handle('diagnostics:runs', () => db.listRuns(30))
+
+  // Backups: the page never sees or passes file paths; they stay in the main process.
+  handle('backup:create', async (_e, opts: { includeKeys: boolean; password: string | null }) => {
+    const { canceled, filePath } = await dialog.showSaveDialog(win!, {
+      title: 'Save backup',
+      defaultPath: join(app.getPath('documents'), `price-tracker-backup-${new Date().toISOString().slice(0, 10)}.ptbackup`),
+      filters: [{ name: 'Price Tracker backup', extensions: ['ptbackup'] }]
+    })
+    if (canceled || !filePath) return null
+    await writeBackup(filePath, { includeKeys: !!opts.includeKeys, password: opts.password || null })
+    return filePath
+  })
+  let pickedBackup: string | null = null
+  handle('backup:pick', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(win!, {
+      title: 'Restore backup',
+      filters: [{ name: 'Price Tracker backup', extensions: ['ptbackup'] }],
+      properties: ['openFile']
+    })
+    if (canceled || !filePaths[0]) return null
+    pickedBackup = filePaths[0]
+    return inspectBackup(pickedBackup)
+  })
+  handle('backup:restore', async (_e, password: string | null) => {
+    if (!pickedBackup) throw new Error('Choose a backup file first.')
+    const info = await restoreBackup(pickedBackup, password || null)
+    pickedBackup = null
+    schedule()
+    events.emit('status', { ...status })
+    return info
+  })
   // Copied from the main process: the page itself has no clipboard permission.
   handle('diagnostics:copy', () => clipboard.writeText(diagnosticsReport()))
   handle('update:check', () => checkForUpdates())

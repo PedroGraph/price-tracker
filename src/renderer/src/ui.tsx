@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, Minus, Package } from 'lucide-react'
 import { buySignal, formatCop, formatUsd, landedTotal } from '@shared/pricing'
-import type { Product, ThresholdUnit } from '@shared/types'
+import type { Product, ThresholdUnit, TrackerEvent } from '@shared/types'
 import { useT, type T } from './i18n'
 import { useMoney } from './money'
 
@@ -139,3 +139,16 @@ export const UNITS: { value: ThresholdUnit; label: string }[] = [
   { value: 'USD', label: 'USD' },
   { value: 'COP', label: 'COP' }
 ]
+
+// English keys, translated where shown.
+export const EVENT_LABEL: Record<TrackerEvent['type'], string> = {
+  price_down: 'Price dropped',
+  price_up: 'Price went up',
+  out_of_stock: 'Out of stock',
+  back_in_stock: 'Back in stock',
+  tracking_started: 'Tracking started',
+  target_reached: 'Target price reached',
+  all_time_low: 'New all-time low',
+  coupon_added: 'Coupon available',
+  deal_started: 'Deal started'
+}

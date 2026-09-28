@@ -7,20 +7,8 @@ import type { PriceReading, Product, Threshold, TrackerEvent } from '@shared/typ
 import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
-import { BuySignal, ChangePill, Segmented, Sparkline, Thumb, timeAgo, Toggle, UNITS } from '../ui'
+import { BuySignal, ChangePill, EVENT_LABEL, Segmented, Sparkline, Thumb, timeAgo, Toggle, UNITS } from '../ui'
 
-// English keys, translated where shown.
-const EVENT_LABEL: Record<TrackerEvent['type'], string> = {
-  price_down: 'Price dropped',
-  price_up: 'Price went up',
-  out_of_stock: 'Out of stock',
-  back_in_stock: 'Back in stock',
-  tracking_started: 'Tracking started',
-  target_reached: 'Target price reached',
-  all_time_low: 'New all-time low',
-  coupon_added: 'Coupon available',
-  deal_started: 'Deal started'
-}
 
 
 const run = (iso: string): string => iso.slice(0, 16)

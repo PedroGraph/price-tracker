@@ -11,7 +11,7 @@ import { maybeSendDigest } from './digest'
 import { diagnosticsReport } from './diagnostics'
 import { inspectBackup, restoreBackup, writeBackup } from './backup'
 import { cachedRate, currentRate, refreshRate } from './exchange'
-import { flushQueuedAlerts, sendTestEmail } from './notify'
+import { flushQueuedAlerts, onNotificationClick, sendTestEmail } from './notify'
 import { APP_URL, registerAppScheme, serveRenderer } from './appProtocol'
 import { mark } from './startup'
 import { amazonSession, clearAmazonSession, flushAmazonSession, openAmazonWindow, Scraper } from './scraper/amazon'
@@ -243,6 +243,8 @@ function registerIpc(): void {
     await openAmazonWindow(win ?? undefined, asin)
     void runCheck()
   })
+  handle('notifications:list', () => ({ alerts: db.listRecentAlerts(), seenAt: db.getSetting<string | null>('alertsSeenAt', null) }))
+  handle('notifications:seen', () => db.setSetting('alertsSeenAt', new Date().toISOString()))
   handle('suggestions:list', () => listSuggestions())
   handle('suggestions:dismiss', (_e, asin: unknown) => {
     if (typeof asin === 'string' && /^[A-Z0-9]{10}$/.test(asin)) dismissSuggestion(asin)
@@ -297,6 +299,9 @@ function registerIpc(): void {
 }
 
 
+// Windows shows notifications under this id; it matches the Start menu shortcut the installer creates.
+if (process.platform === 'win32') app.setAppUserModelId('com.local.amazonpricetracker')
+
 app.whenReady().then(async () => {
   mark('ready')
   denyPermissions(session.defaultSession)
@@ -315,6 +320,13 @@ app.whenReady().then(async () => {
   ).catch(() => undefined)
   mark('dbOpen')
   registerIpc()
+  onNotificationClick((asin) => {
+    showWindow()
+    const send = (): void => win?.webContents.send('open-product', asin)
+    // A window created just now has to load the page before it can listen.
+    if (win?.webContents.isLoading()) win.webContents.once('did-finish-load', send)
+    else send()
+  })
   createWindow()
   mark('windowCreated')
   createTray()

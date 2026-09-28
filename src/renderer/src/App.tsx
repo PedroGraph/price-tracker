@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { Suggestions } from './Suggestions'
+import { Notifications } from './Notifications'
 import { ChevronLeft, Moon, RefreshCw, Settings as Gear, Sun, TrendingUp } from 'lucide-react'
 import type { DashboardStats, Product, Settings, Status } from '@shared/types'
 import { LangContext, useT } from './i18n'
@@ -68,10 +68,13 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
       void reload()
       void window.api.getSettings().then(setSettings)
     })
+    // A Windows notification was clicked: show that product.
+    const offOpen = window.api.onOpenProduct((asin) => setView({ name: 'product', asin }))
     // Keeps the "x min ago" labels fresh.
     const t = window.setInterval(() => tick((n) => n + 1), 30_000)
     return () => {
       off()
+      offOpen()
       clearInterval(t)
     }
   }, [reload, setSettings])
@@ -132,8 +135,9 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
               <span className="sep" />
               <span>{t('Next check in {time}', { time: timeUntil(status?.nextRunAt ?? null) })}</span>
             </div>
-            <Suggestions
+            <Notifications
               status={status}
+              onOpen={(asin) => setView({ name: 'product', asin })}
               onTrack={async (asin) => {
                 try {
                   await window.api.addProduct(asin)

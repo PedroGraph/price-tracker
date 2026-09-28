@@ -1,4 +1,4 @@
-import { Notification } from 'electron'
+import { Notification, nativeImage } from 'electron'
 import { formatCop, formatUsd, offerUrl, priceWithCoupon } from '@shared/pricing'
 import type { EventType, Product } from '@shared/types'
 import { getResendKey, getSettings, tr } from '../settings'
@@ -185,10 +185,34 @@ async function sendRaw(m: { key: string; from: string; to: string; subject: stri
   return ((await res.json()) as { id: string }).id
 }
 
+let openProduct: (asin: string) => void = () => undefined
+
+/** What clicking a Windows notification does: the app opens that product. */
+export function onNotificationClick(fn: (asin: string) => void): void {
+  openProduct = fn
+}
+
+/** The product picture as a notification icon; skipped (no picture) when it can't be loaded quickly. */
+async function productIcon(url: string | null): Promise<Electron.NativeImage | undefined> {
+  if (!url || !/^https:\/\/[^/]*\.media-amazon\.com\//.test(url)) return undefined
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
+    if (!res.ok) return undefined
+    const image = nativeImage.createFromBuffer(Buffer.from(await res.arrayBuffer()))
+    return image.isEmpty() ? undefined : image
+  } catch {
+    return undefined
+  }
+}
+
 function showDesktop(alerts: Alert[], rate: number | null): void {
   if (!getSettings().desktopNotifications || !Notification.isSupported()) return
   for (const a of alerts) {
-    new Notification({ title: `${tr(LABELS[a.type])} — ${a.product.title.slice(0, 50)}`, body: summary(a, rate) }).show()
+    void productIcon(a.product.image).then((icon) => {
+      const n = new Notification({ title: `${tr(LABELS[a.type])} — ${a.product.title.slice(0, 50)}`, body: summary(a, rate), icon })
+      n.on('click', () => openProduct(a.product.asin))
+      n.show()
+    })
   }
 }
 

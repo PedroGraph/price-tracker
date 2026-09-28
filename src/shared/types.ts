@@ -154,6 +154,12 @@ export interface TrackerEvent {
   createdAt: string
 }
 
+/** An alert in the bell's list: the event plus what's needed to show the product. */
+export interface AlertItem extends TrackerEvent {
+  title: string
+  image: string | null
+}
+
 export interface ExchangeRate {
   /** COP per 1 USD. */
   rate: number

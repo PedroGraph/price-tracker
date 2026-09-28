@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import { app } from 'electron'
 import { join } from 'node:path'
-import type { ProductSource, RunRecord, DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent } from '@shared/types'
+import type { ProductSource, RunRecord, DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent, AlertItem } from '@shared/types'
 
 let db: DatabaseSync
 
@@ -419,6 +419,28 @@ export function getEvents(asin: string): TrackerEvent[] {
       createdAt: r.created_at as string
     })
   )
+}
+
+/** Alerts of the last 30 days, newest first, for the bell. */
+export function listRecentAlerts(limit = 60): AlertItem[] {
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString()
+  return (
+    db
+      .prepare(
+        `SELECT e.*, p.title, p.image FROM events e JOIN products p ON p.asin = e.asin
+         WHERE e.type IN ${ALERT_TYPES} AND e.created_at >= ? ORDER BY e.created_at DESC, e.id DESC LIMIT ?`
+      )
+      .all(since, limit) as ProductRow[]
+  ).map((r) => ({
+    id: r.id as number,
+    asin: r.asin as string,
+    type: r.type as EventType,
+    oldPrice: (r.old_price as number) ?? null,
+    newPrice: (r.new_price as number) ?? null,
+    createdAt: r.created_at as string,
+    title: r.title as string,
+    image: (r.image as string) ?? null
+  }))
 }
 
 // ---- backups

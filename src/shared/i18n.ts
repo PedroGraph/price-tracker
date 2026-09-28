@@ -96,6 +96,8 @@ const ES: Record<string, string> = {
   Delivered: 'Total entregado',
   'Price + shipping + import fees': 'Precio + envío + impuestos de importación',
   'Coupons for you': 'Cupones para ti',
+  Notifications: 'Notificaciones',
+  'No alerts in the last 30 days.': 'Sin alertas en los últimos 30 días.',
   'Related to what’s in your cart, with a coupon right now.': 'Relacionados con lo que tienes en el carrito, con cupón ahora mismo.',
   'Look again': 'Buscar de nuevo',
   Dismiss: 'Descartar',

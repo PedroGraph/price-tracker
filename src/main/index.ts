@@ -322,6 +322,11 @@ app.whenReady().then(async () => {
   const FIRST_CHECK_DELAY = 15_000
   status.nextRunAt = new Date(Date.now() + FIRST_CHECK_DELAY).toISOString()
   setTimeout(() => void runCheck().finally(schedule), FIRST_CHECK_DELAY)
+  // Coupons on products related to the cart: every 30 minutes, skipped while a check runs or signed out.
+  setInterval(() => {
+    if (status.running || status.session !== 'logged_in') return
+    void refreshSuggestions().then((ran) => ran && events.emit('status', { ...status }))
+  }, 30 * 60_000)
   syncBot()
   initUpdater(
     () => {

@@ -6,8 +6,8 @@ import type { Suggestion } from '@shared/types'
 
 /**
  * Products related to what's in the cart that have a coupon right now. Found by searching
- * Amazon for each cart product (with Amazon's "Coupons" filter), at most every 12 hours,
- * so it adds a few page loads twice a day, not to every hourly check.
+ * Amazon for each cart product (with Amazon's "Coupons" filter) every 30 minutes, in its
+ * own hidden window and never during a price check.
  */
 interface Stored {
   updatedAt: string | null
@@ -16,7 +16,8 @@ interface Stored {
 }
 
 const KEY = 'suggestions'
-const EVERY = 12 * 60 * 60_000
+// A little under the 30-minute timer, so timer drift never skips a round.
+const EVERY = 29 * 60_000
 const PER_PRODUCT = 3
 let running = false
 

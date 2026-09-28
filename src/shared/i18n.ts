@@ -80,7 +80,7 @@ const ES: Record<string, string> = {
   'Look again': 'Buscar de nuevo',
   Dismiss: 'Descartar',
   'Looking for coupons…': 'Buscando cupones…',
-  'No coupons on related products right now. The app looks again twice a day.': 'Ahora no hay cupones en productos relacionados. La app vuelve a buscar dos veces al día.',
+  'No coupons on related products right now. The app looks again every 30 minutes.': 'Ahora no hay cupones en productos relacionados. La app vuelve a buscar cada 30 minutos.',
   'Like {title}': 'Parecidos a {title}',
   'Updating results…': 'Actualizando resultados…',
   'Press Enter to also search “{q}” on Amazon': 'Presiona Enter para buscar también “{q}” en Amazon',

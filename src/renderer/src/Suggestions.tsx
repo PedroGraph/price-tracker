@@ -7,7 +7,7 @@ import { Thumb } from './ui'
 
 /**
  * The bell in the top bar: products related to the ones in the cart that have a coupon.
- * Found by the main process after a check, at most every 12 hours.
+ * Found by the main process every 30 minutes.
  */
 export function Suggestions({ status, onTrack }: { status: Status | null; onTrack: (asin: string) => Promise<void> }) {
   const { t } = useT()
@@ -77,7 +77,7 @@ export function Suggestions({ status, onTrack }: { status: Status | null; onTrac
                 <Loader2 size={16} className="spin" /> {t('Looking for coupons…')}
               </p>
             ) : items.length === 0 ? (
-              <p className="muted notif-empty">{t('No coupons on related products right now. The app looks again twice a day.')}</p>
+              <p className="muted notif-empty">{t('No coupons on related products right now. The app looks again every 30 minutes.')}</p>
             ) : (
               groups.map((g) => (
                 <div key={g.forAsin} className="notif-group">

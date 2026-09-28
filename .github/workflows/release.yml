@@ -1,0 +1,43 @@
+name: Release
+
+# Pushing a version tag (v1.2.0) builds the Windows installer and publishes it as a
+# GitHub release, which installed apps pick up as an update.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the release and upload the installer
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Tag matches package.json
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v$version" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} doesn't match package.json version $version"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Build and publish
+        run: npm run release
+        env:
+          # GitHub's own per-run token; no personal token needed.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

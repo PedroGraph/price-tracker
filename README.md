@@ -156,20 +156,16 @@ Put your icon files in [`resources/`](resources/README.md) (`icon.ico`, `icon.pn
 
 The installed app checks [GitHub Releases](https://github.com/PedroGraph/price-tracker/releases) on startup and every 6 hours, downloads new versions in the background, and offers **Restart to update**.
 
-To publish a version:
+To publish a version, bump `version` in `package.json` (higher than the installed one), commit, and push a matching tag:
 
-1. Bump `version` in `package.json` (it must be higher than the installed one) and commit.
-2. With a GitHub token that can write to the repo (see below), run in PowerShell:
+```bash
+git tag v1.2.0
+git push origin main --tags
+```
 
-   ```powershell
-   $env:GH_TOKEN = "<your token>"; npm run release
-   ```
+The **Release** workflow in GitHub Actions runs the type check and tests, builds the installer on Windows and publishes it with `latest.yml` as a GitHub release, using GitHub's own per-run token. Installed apps pick it up on their next check or when you click **Check for updates**, then offer **Restart to update**. Follow the run under the repo's **Actions** tab. The **CI** workflow runs the checks on every push.
 
-   If Windows briefly locks a freshly built file (usually the antivirus scanning it), the build retries by itself.
-
-   This builds the installer and publishes it, together with `latest.yml`, as a GitHub release. Installed apps pick it up on their next check or when you click **Check for updates**, then offer **Restart to update**.
-
-**Token:** GitHub → Settings → Developer settings → Personal access tokens → *Fine-grained tokens* → Generate. Repository access: only `price-tracker`; permission **Contents: Read and write**. Keep it out of the repo.
+You can still publish from your PC with `$env:GH_TOKEN = "<token>"; npm run release` (fine-grained token, Contents: read and write on this repo), but it isn't needed anymore.
 
 Updates need the repository to be **public**. With a private repo the app would need a token inside the installer, which it deliberately doesn't ship, so update checks just report an error.
 

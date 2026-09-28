@@ -4,7 +4,7 @@ import type { Notify } from '../App'
 import type { DashboardStats, Product, Status } from '@shared/types'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
-import { ChangePill, Sparkline, Thumb, timeAgo } from '../ui'
+import { BuySignal, ChangePill, Sparkline, Thumb, timeAgo } from '../ui'
 
 type Filter = 'all' | 'down' | 'up' | 'out'
 
@@ -202,6 +202,7 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
         <span className="big">{fmt(p.lastPrice)}</span>
         {moved !== null && moved !== 0 && <span className="was">{fmt(p.firstPrice)}</span>}
         <ChangePill from={p.firstPrice} to={p.lastPrice} />
+        <BuySignal product={p} />
         {p.lastShipping ? <span className="ship">{t('+ {amount} shipping', { amount: fmt(p.lastShipping) })}</span> : null}
         {p.lastImportFees ? <span className="ship">{t('+ {amount} import fees', { amount: fmt(p.lastImportFees) })}</span> : null}
       </div>

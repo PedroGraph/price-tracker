@@ -147,6 +147,13 @@ const ES: Record<string, string> = {
   'Free shipping': 'Envío gratis',
   'BEST PRICE': 'MEJOR PRECIO',
   'View offer': 'Ver oferta',
+  'Low price': 'Precio bajo',
+  'Normal price': 'Precio normal',
+  'High price': 'Precio alto',
+  'Not enough data': 'Pocos datos',
+  'Compared with the last 30 days': 'Comparado con los últimos 30 días',
+  '30-day average {avg}': 'promedio de 30 días {avg}',
+  'needs a few days of checks': 'hacen falta unos días de revisiones',
   'Seller profile': 'Perfil del vendedor',
   'since last check': 'desde la última revisión',
   "Every check saves the price, even when it doesn't change. When the price moves further from the base price than this threshold, an alert is sent and that price becomes the new base price. Shipping is never part of the price.":

@@ -124,6 +124,31 @@ export function sellerUrl(sellerId: string): string {
   return `https://www.amazon.com/sp?seller=${sellerId}`
 }
 
+export type BuyVerdict = 'low' | 'normal' | 'high' | 'unknown'
+
+/** Minimum history before judging a price, so a couple of checks don't produce a verdict. */
+export const SIGNAL_MIN_RUNS = 5
+export const SIGNAL_MIN_DAYS = 2
+
+/**
+ * Is now a good time to buy? Compares the current price with the last 30 days:
+ * low = at the 30-day low (within 2%) or 5%+ under the average; high = 5%+ over the average.
+ */
+export function buySignal(input: {
+  current: number | null
+  avg: number | null
+  min: number | null
+  runs: number
+  spanDays: number
+}): BuyVerdict {
+  const { current, avg, min, runs, spanDays } = input
+  if (current === null || avg === null || min === null) return 'unknown'
+  if (runs < SIGNAL_MIN_RUNS || spanDays < SIGNAL_MIN_DAYS) return 'unknown'
+  if (current <= min * 1.02 || current <= avg * 0.95) return 'low'
+  if (current >= avg * 1.05) return 'high'
+  return 'normal'
+}
+
 /** Pulls the ASIN out of an Amazon product URL (or accepts a bare ASIN). */
 export function parseAsin(input: string): string | null {
   const text = input.trim()

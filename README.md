@@ -13,6 +13,7 @@ A Windows desktop app (Electron + React + TypeScript) that watches the prices of
 - **All-time low** alerts, plus the lowest price ever and in the last 30 days on each product.
 - **Import fees**: when Amazon shows an import fees deposit (shipping abroad, e.g. to Colombia) it's shown next to shipping, with the delivered total.
 - **Coupons and deals**: alerts when a coupon or a limited-time deal shows up, with the price after the coupon.
+- **Good time to buy?** Each product says whether its price is low, normal or high compared with the last 30 days.
 - **English or Spanish** interface and alerts (follows the Windows language until you pick one).
 - **Export** any product's price history, or all of it, to CSV.
 - **Track products outside your cart** by pasting a product link (including `amzn.to` links) or an ASIN.

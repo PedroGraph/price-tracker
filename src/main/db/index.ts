@@ -108,7 +108,10 @@ function toProduct(r: ProductRow): Product {
     coupon: (r.coupon as string) ?? null,
     deal: (r.deal as string) ?? null,
     lowestPrice: null,
-    lowest30: null
+    lowest30: null,
+    avg30: null,
+    runs30: 0,
+    spanDays30: 0
   }
 }
 
@@ -156,8 +159,24 @@ function enrich(p: Product): Product {
        FROM price_history WHERE asin = ? AND price IS NOT NULL`
     )
     .get(new Date(Date.now() - 30 * 86_400_000).toISOString(), p.asin) as { ever: number | null; last30: number | null }
+  // One tracked price per check (the cheapest reading of that check) over the last 30 days.
+  const month = db
+    .prepare(
+      `SELECT AVG(price) AS avg, COUNT(*) AS runs, MIN(t) AS first, MAX(t) AS last FROM (
+         SELECT MIN(price) AS price, MIN(checked_at) AS t FROM price_history
+         WHERE asin = ? AND price IS NOT NULL AND checked_at >= ? GROUP BY ${RUN})`
+    )
+    .get(p.asin, new Date(Date.now() - 30 * 86_400_000).toISOString()) as {
+    avg: number | null
+    runs: number
+    first: string | null
+    last: string | null
+  }
   return {
     ...p,
+    avg30: month.avg === null ? null : Math.round(month.avg * 100) / 100,
+    runs30: month.runs,
+    spanDays30: month.first && month.last ? (Date.parse(month.last) - Date.parse(month.first)) / 86_400_000 : 0,
     lowestPrice: lows.ever,
     lowest30: lows.last30,
     firstPrice: first?.price ?? null,

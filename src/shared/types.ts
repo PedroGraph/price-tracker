@@ -46,6 +46,10 @@ export interface Product {
   coupon: string | null
   /** Deal badge, e.g. "Limited time deal". */
   deal: string | null
+  /** Average tracked price over the last 30 days, the number of checks and how many days they span. */
+  avg30: number | null
+  runs30: number
+  spanDays30: number
   /** Lowest tracked price ever and in the last 30 days. */
   lowestPrice: number | null
   lowest30: number | null

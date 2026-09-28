@@ -1,4 +1,6 @@
 import { ChevronDown, ChevronUp, Minus, Package } from 'lucide-react'
+import { buySignal } from '@shared/pricing'
+import type { Product } from '@shared/types'
 import { useT, type T } from './i18n'
 import { useMoney } from './money'
 
@@ -89,5 +91,30 @@ export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boo
     <button className={on ? 'toggle on' : 'toggle'} role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}>
       <span />
     </button>
+  )
+}
+
+const SIGNAL_LABEL = { low: 'Low price', normal: 'Normal price', high: 'High price', unknown: 'Not enough data' } as const
+
+/** "Low / normal / high price" compared with the last 30 days. */
+export function BuySignal({ product, detailed }: { product: Product; detailed?: boolean }) {
+  const { t } = useT()
+  const { fmt } = useMoney()
+  const verdict = buySignal({
+    current: product.lastPrice,
+    avg: product.avg30,
+    min: product.lowest30,
+    runs: product.runs30,
+    spanDays: product.spanDays30
+  })
+  if (verdict === 'unknown' && !detailed) return null
+  return (
+    <span className={`signal ${verdict}`} title={t('Compared with the last 30 days')}>
+      <span className="dot" /> {t(SIGNAL_LABEL[verdict])}
+      {detailed && verdict !== 'unknown' && (
+        <small> · {t('30-day average {avg}', { avg: fmt(product.avg30) })}</small>
+      )}
+      {detailed && verdict === 'unknown' && <small> · {t('needs a few days of checks')}</small>}
+    </span>
   )
 }

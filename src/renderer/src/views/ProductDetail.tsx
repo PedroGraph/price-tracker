@@ -6,7 +6,7 @@ import type { PriceReading, Product, Threshold, ThresholdUnit, TrackerEvent } fr
 import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
-import { ChangePill, Segmented, Sparkline, Thumb, timeAgo, Toggle } from '../ui'
+import { BuySignal, ChangePill, Segmented, Sparkline, Thumb, timeAgo, Toggle } from '../ui'
 
 // English keys, translated where shown.
 const EVENT_LABEL: Record<TrackerEvent['type'], string> = {
@@ -175,6 +175,9 @@ export function ProductDetail({
           <div className="priceline">
             <span className="big">{fmt(product.lastPrice)}</span>
             <ChangePill from={base} to={product.lastPrice} suffix=" from base price" />
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <BuySignal product={product} detailed />
           </div>
           <div className="base-row">
             <span className="muted">{t('Base price')} </span>

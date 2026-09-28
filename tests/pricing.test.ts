@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { toTelegramHtml } from '../src/main/notify/format'
-import { evaluateReading, extraEvents, parseAsin, parsePrice, priceWithCoupon, promoEvents, thresholdInUsd } from '../src/shared/pricing'
+import { buySignal, evaluateReading, extraEvents, parseAsin, parsePrice, priceWithCoupon, promoEvents, thresholdInUsd } from '../src/shared/pricing'
 
 const pct5 = { unit: 'percent' as const, value: 5 }
 const base = { basePrice: 100, wasAvailable: true, available: true, threshold: pct5, copPerUsd: 4000 }
@@ -121,5 +121,22 @@ describe('toTelegramHtml', () => {
     expect(toTelegramHtml('<p>Hello <b>you</b></p>\n   <p>See <code>x.ts</code> <br>and <a href="https://a.b">link</a></p>')).toBe(
       'Hello <b>you</b>\nSee <code>x.ts</code> and <a href="https://a.b">link</a>'
     )
+  })
+})
+
+describe('buySignal', () => {
+  const month = { avg: 100, min: 90, runs: 20, spanDays: 10 }
+
+  it('needs enough history', () => {
+    expect(buySignal({ ...month, current: 80, runs: 4 })).toBe('unknown')
+    expect(buySignal({ ...month, current: 80, spanDays: 1 })).toBe('unknown')
+    expect(buySignal({ ...month, current: null })).toBe('unknown')
+  })
+
+  it('calls low, normal and high prices', () => {
+    expect(buySignal({ ...month, current: 91 })).toBe('low') // within 2% of the 30-day low
+    expect(buySignal({ ...month, current: 95 })).toBe('low') // 5% under the average
+    expect(buySignal({ ...month, current: 100 })).toBe('normal')
+    expect(buySignal({ ...month, current: 105 })).toBe('high')
   })
 })

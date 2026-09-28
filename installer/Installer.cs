@@ -158,6 +158,7 @@ namespace PriceTrackerInstaller
                 HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
                 Margin = new Thickness(0, -18, -18, 0), Cursor = Cursors.Hand, Padding = new Thickness(6)
             };
+            close.MouseLeftButtonDown += delegate(object s, MouseButtonEventArgs e) { e.Handled = true; };
             close.MouseLeftButtonUp += delegate { Close(); };
             close.MouseEnter += delegate { close.Foreground = Theme.Brush(Theme.Text); };
             close.MouseLeave += delegate { close.Foreground = Theme.Brush(Theme.Muted); };
@@ -549,6 +550,8 @@ namespace PriceTrackerInstaller
             };
             b.MouseEnter += delegate { b.Background = hover; };
             b.MouseLeave += delegate { b.Background = normal; };
+            // Keep the press from reaching the card, whose DragMove would swallow the click.
+            b.MouseLeftButtonDown += delegate(object s, MouseButtonEventArgs e) { e.Handled = true; };
             b.MouseLeftButtonUp += delegate { onClick(); };
             return b;
         }

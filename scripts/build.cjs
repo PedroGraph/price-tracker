@@ -30,7 +30,9 @@ function run(command, args) {
  * electron-builder uploads the release files in parallel and each upload creates the
  * GitHub release if it's missing, so a new version could end up as two releases for
  * the same tag (one without latest.yml, which broke updates). Creating the release
- * first means every upload finds it.
+ * first means every upload finds it. It starts as a draft, invisible to installed apps,
+ * so none of them sees a release whose latest.yml isn't uploaded yet; the workflow
+ * publishes it once every file is there.
  */
 async function ensureRelease() {
   const { version } = require('../package.json')
@@ -50,9 +52,9 @@ async function ensureRelease() {
     throw new Error(`There are ${same.length} releases for ${tag}. Delete the extra ones on GitHub and run this again.`)
   }
   if (same.length === 1) return console.log(`Using the existing release ${tag}.`)
-  const created = await api('/releases', { method: 'POST', body: JSON.stringify({ tag_name: tag, name: version, draft: false }) })
+  const created = await api('/releases', { method: 'POST', body: JSON.stringify({ tag_name: tag, name: version, draft: true }) })
   if (!created.ok) throw new Error(`Could not create release ${tag}: ${created.status} ${await created.text()}`)
-  console.log(`Created release ${tag}.`)
+  console.log(`Created draft release ${tag}.`)
 }
 
 async function main() {

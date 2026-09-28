@@ -38,7 +38,8 @@ publish:
   owner: PedroGraph
   repo: price-tracker
   # Publish straight away: installed apps don't see draft releases.
-  releaseType: release
+  # Uploads go to a draft; the release workflow publishes it once every file is uploaded.
+  releaseType: draft
 # Security switches baked into the .exe (https://www.electronjs.org/docs/latest/tutorial/fuses)
 electronFuses:
   runAsNode: false                           # the .exe can't be used as a plain Node.js runtime

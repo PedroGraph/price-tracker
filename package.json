@@ -1,6 +1,6 @@
 {
   "name": "amazon-price-tracker",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "Desktop app that tracks the prices of the products in your Amazon.com cart and emails you when they change.",
   "main": "./out/main/index.js",
   "license": "MIT",

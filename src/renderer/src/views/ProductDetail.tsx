@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { conditionGroup, offerUrl, priceWithCoupon, sellerUrl, thresholdInUsd } from '@shared/pricing'
+import { conditionGroup, landedTotal, offerUrl, priceWithCoupon, sellerUrl, thresholdInUsd } from '@shared/pricing'
 import { priceInsights } from '@shared/insights'
-import type { PriceReading, Product, ReviewsInfo, Threshold, TrackerEvent } from '@shared/types'
+import type { Comparison, PriceReading, Product, ReviewsInfo, StoreResult, Threshold, TrackerEvent } from '@shared/types'
 import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
@@ -259,6 +259,7 @@ export function ProductDetail({
         </div>
 
         <ReviewsCard product={product} />
+        <CompareCard product={product} notify={notify} />
 
         <div className="card">
           <div className="card-head">
@@ -784,6 +785,127 @@ function PurchaseCard({ product, onChanged, notify }: { product: Product; onChan
             {t('I bought it')}
           </button>
         </>
+      )}
+    </div>
+  )
+}
+
+/** The same product in other stores and other Amazon countries, found on demand. */
+function CompareCard({ product, notify }: { product: Product; notify: Notify }) {
+  const { t, locale } = useT()
+  const { fmt } = useMoney()
+  const [data, setData] = useState<Comparison | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    void window.api.getComparison(product.asin).then(setData)
+  }, [product.asin])
+  const run = async (): Promise<void> => {
+    setBusy(true)
+    try {
+      setData(await window.api.compareProduct(product.asin))
+    } catch (e) {
+      notify(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e), true)
+    } finally {
+      setBusy(false)
+    }
+  }
+  // Local stores (MercadoLibre) sell without shipping or import fees, so compare with what Amazon costs delivered.
+  const amazonTotal = landedTotal(product.lastPrice, product.lastShipping, product.lastImportFees)
+  const diff = (price: number | null, delivered: boolean) => {
+    const ref = delivered ? amazonTotal : product.lastPrice
+    if (price === null || ref === null) return null
+    const d = price - ref
+    return <span className={d < 0 ? 'ok-text' : 'bad-text'}>{d < 0 ? `−${fmt(-d)}` : `+${fmt(d)}`}</span>
+  }
+  const status = (r: StoreResult) =>
+    r.status === 'login' ? (
+      <span className="muted small">
+        {t('Needs you to sign in once.')}{' '}
+        <button className="btn link" onClick={() => void window.api.connectMercadoLibre()}>
+          {t('Connect MercadoLibre')}
+        </button>
+      </span>
+    ) : r.status === 'check' ? (
+      <span className="muted small">
+        {t('The store asked for a human check.')}{' '}
+        <a href={r.url} target="_blank" rel="noreferrer">
+          {t('Open it')} ↗
+        </a>
+      </span>
+    ) : r.status === 'missing' ? (
+      <span className="muted small">{t('Not sold there.')}</span>
+    ) : r.status === 'error' ? (
+      <span className="muted small">{t("Couldn't load it.")}</span>
+    ) : r.items.length === 0 ? (
+      <span className="muted small">{t('No results.')}</span>
+    ) : null
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3>{t('In other stores')}</h3>
+        <button className="btn" onClick={() => void run()} disabled={busy}>
+          {busy ? t('Searching…') : data ? t('Search again') : t('Search')}
+        </button>
+      </div>
+      <p className="sub">
+        {data
+          ? t('Searched “{q}” {when}. MercadoLibre is compared with the delivered total from Amazon; the others with the price.', {
+              q: data.query,
+              when: timeAgo(data.updatedAt, t)
+            })
+          : t('Looks for this product on MercadoLibre Colombia, eBay, Walmart and other Amazon countries. Takes about a minute.')}
+      </p>
+      {data && (
+        <div className="compare">
+          {data.stores.map((r) => (
+            <div key={r.store} className="compare-store">
+              <div className="compare-head">
+                <strong>{r.store}</strong>
+                <a className="small" href={r.url} target="_blank" rel="noreferrer">
+                  {t('See all')} ↗
+                </a>
+              </div>
+              {status(r)}
+              {r.items.slice(0, 3).map((i) => (
+                <a key={i.url} className="compare-item" href={i.url} target="_blank" rel="noreferrer" title={i.title}>
+                  {i.image ? <img src={i.image} alt="" /> : <span className="noimg" />}
+                  <span className="name">
+                    {i.title}
+                    {i.condition && <small className="muted"> · {i.condition}</small>}
+                  </span>
+                  <span className="mono">{fmt(i.price)}</span>
+                  {diff(i.price, r.store === 'MercadoLibre')}
+                </a>
+              ))}
+            </div>
+          ))}
+          <div className="compare-store">
+            <div className="compare-head">
+              <strong>{t('Other Amazon stores')}</strong>
+              <span className="muted small">{t('local price, without shipping to Colombia')}</span>
+            </div>
+            {data.amazon.map((r) => (
+              <div key={r.store} className="compare-row">
+                <a href={r.url} target="_blank" rel="noreferrer">
+                  {r.store}
+                </a>
+                {r.status === 'ok' && r.items[0] ? (
+                  <>
+                    <span className="muted small">{r.items[0].priceText}</span>
+                    <span className="mono">≈ {fmt(r.items[0].price)}</span>
+                    {diff(r.items[0].price, false)}
+                  </>
+                ) : (
+                  status(r)
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="hint">
+            {t('Results are searches by name: check it is the same model before buying.')} {new Date(data.updatedAt).toLocaleString(locale)}
+          </p>
+        </div>
       )}
     </div>
   )

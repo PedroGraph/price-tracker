@@ -25,8 +25,27 @@ export function wishlistId(url: string): string | null {
   return m ? m[1].toUpperCase() : null
 }
 
+/** Stores the comparison browser may visit (and sign in to, for MercadoLibre). */
+const STORES = [
+  'mercadolibre.com.co',
+  'mercadolibre.com',
+  'mercadolibre.co',
+  'ebay.com',
+  'walmart.com',
+  'amazon.com.mx',
+  'amazon.ca',
+  'amazon.es',
+  'amazon.co.uk',
+  'amazon.de'
+]
+
+export function isStoreUrl(url: string): boolean {
+  const u = parse(url)
+  return !!u && u.protocol === 'https:' && STORES.some((d) => isHost(u.hostname, d))
+}
+
 /** Sites the app is allowed to open in the user's browser. Anything else is ignored. */
-const EXTERNAL = ['amazon.com', 'github.com', 'resend.com', 't.me', 'telegram.org']
+const EXTERNAL = ['amazon.com', 'github.com', 'resend.com', 't.me', 'telegram.org', ...STORES]
 
 export function isAllowedExternal(url: string): boolean {
   const u = parse(url)

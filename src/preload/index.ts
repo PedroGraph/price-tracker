@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { BackupInfo } from '../main/backup'
-import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Suggestion, AlertItem, SaleOutlook, ProductStats, ReviewsInfo, Purchase, Trm, Status, Threshold, TrackerEvent } from '@shared/types'
+import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Suggestion, AlertItem, SaleOutlook, ProductStats, ReviewsInfo, Purchase, Trm, Comparison, Status, Threshold, TrackerEvent } from '@shared/types'
 
 /** The only surface the UI can reach. Each method maps to one IPC channel. */
 const api = {
@@ -36,6 +36,9 @@ const api = {
   getReviews: (asin: string): Promise<ReviewsInfo | null> => ipcRenderer.invoke('products:reviews', asin),
   setPurchase: (asin: string, p: Purchase | null): Promise<void> => ipcRenderer.invoke('products:purchase', asin, p),
   getTrm: (): Promise<Trm | null> => ipcRenderer.invoke('trm:get'),
+  getComparison: (asin: string): Promise<Comparison | null> => ipcRenderer.invoke('compare:get', asin),
+  compareProduct: (asin: string): Promise<Comparison> => ipcRenderer.invoke('compare:run', asin),
+  connectMercadoLibre: (): Promise<void> => ipcRenderer.invoke('stores:mlLogin'),
   saleOutlook: (): Promise<SaleOutlook | null> => ipcRenderer.invoke('sales:outlook'),
   productStats: (): Promise<ProductStats[]> => ipcRenderer.invoke('stats:products'),
   priceSeries: (asins: string[]): Promise<{ asin: string; points: { at: string; price: number }[] }[]> =>

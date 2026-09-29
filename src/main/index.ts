@@ -10,6 +10,7 @@ import * as db from './db'
 import { maybeSendDigest } from './digest'
 import { maybeSendSaleHeadsUp, saleOutlook } from './sales'
 import { maybeSendTrmAlert, refreshTrm } from './trm'
+import { compareProduct, getComparison, openMercadoLibreLogin } from './stores'
 import { diagnosticsReport } from './diagnostics'
 import { inspectBackup, restoreBackup, writeBackup } from './backup'
 import { cachedRate, currentRate, refreshRate } from './exchange'
@@ -268,6 +269,12 @@ function registerIpc(): void {
     db.setPurchase(asin, { at: x.at, price: Math.round(x.price * 100) / 100, returnUntil: x.returnUntil })
   })
   handle('trm:get', () => refreshTrm())
+  handle('compare:get', (_e, asin: unknown) => (typeof asin === 'string' ? getComparison(asin) : null))
+  handle('compare:run', (_e, asin: unknown) => {
+    if (typeof asin !== 'string' || !/^[A-Z0-9]{10}$/.test(asin)) throw new Error('Invalid ASIN.')
+    return compareProduct(asin)
+  })
+  handle('stores:mlLogin', () => openMercadoLibreLogin(win ?? undefined))
   handle('sales:outlook', () => saleOutlook())
   handle('stats:products', () => db.productStats())
   handle('stats:series', (_e, asins: unknown) =>

@@ -433,3 +433,11 @@ code { font-family: var(--mono); font-size: 0.92em; }
 .purchase-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-top: 12px; }
 .purchase-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 .purchase-form input { width: 150px; }
+.compare { display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
+.compare-store { display: flex; flex-direction: column; gap: 6px; }
+.compare-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.compare-item { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 6px; border-radius: 8px; color: inherit; text-decoration: none; font-size: 13px; }
+.compare-item:hover { background: var(--line); }
+.compare-item img, .compare-item .noimg { width: 36px; height: 36px; object-fit: contain; background: #fff; border-radius: 6px; }
+.compare-item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.compare-row { display: grid; grid-template-columns: 150px 1fr auto auto; align-items: center; gap: 10px; font-size: 13px; padding: 4px 6px; }

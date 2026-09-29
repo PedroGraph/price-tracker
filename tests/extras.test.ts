@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseCount, parseHistogram, parseRating, parseSalesRank, parseStockLeft } from '../src/shared/extras'
+import { parseCount, parseHistogram, parseLocalPrice, parseRating, parseSalesRank, parseStockLeft } from '../src/shared/extras'
 
 describe('product page extras', () => {
   it('reads how many are left', () => {
@@ -30,5 +30,18 @@ describe('product page extras', () => {
         '3 percent of reviews have 1 stars'
       ])
     ).toEqual([87, 8, 0, 0, 3])
+  })
+})
+
+describe('parseLocalPrice', () => {
+  it('reads US, European and other formats', () => {
+    expect(parseLocalPrice('$1,234.56')).toBe(1234.56)
+    expect(parseLocalPrice('1.234,56 €')).toBe(1234.56)
+    expect(parseLocalPrice('249,99 €')).toBe(249.99)
+    expect(parseLocalPrice('£199')).toBe(199)
+    expect(parseLocalPrice('MX$4,599.00')).toBe(4599)
+    expect(parseLocalPrice('CDN$ 299.99')).toBe(299.99)
+    expect(parseLocalPrice('COP 1,234,567')).toBe(1234567)
+    expect(parseLocalPrice(null)).toBeNull()
   })
 })

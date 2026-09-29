@@ -41,3 +41,27 @@ export function parseHistogram(labels: string[]): number[] {
   }
   return out
 }
+
+/**
+ * A price in any local format as a number: "$1,234.56", "1.234,56 €", "249,99 €", "£199",
+ * "MX$4,599.00", "CDN$ 299.99". The last separator followed by exactly two digits is the decimal one.
+ */
+export function parseLocalPrice(text: string | null): number | null {
+  if (!text) return null
+  const m = /\d[\d.,\s ]*/.exec(text)
+  if (!m) return null
+  let n = m[0].replace(/[\s ]/g, '').replace(/[.,]$/, '')
+  const dec = /[.,](\d{2})$/.exec(n)
+  n = dec ? `${n.slice(0, -3).replace(/[.,]/g, '')}.${dec[1]}` : n.replace(/[.,]/g, '')
+  const value = Number(n)
+  return Number.isFinite(value) && value > 0 ? value : null
+}
+
+/** Amazon stores compared with amazon.com, with their currency. */
+export const AMAZON_STORES = [
+  { domain: 'amazon.com.mx', name: 'Amazon México', currency: 'MXN' },
+  { domain: 'amazon.ca', name: 'Amazon Canada', currency: 'CAD' },
+  { domain: 'amazon.es', name: 'Amazon España', currency: 'EUR' },
+  { domain: 'amazon.co.uk', name: 'Amazon UK', currency: 'GBP' },
+  { domain: 'amazon.de', name: 'Amazon Deutschland', currency: 'EUR' }
+] as const

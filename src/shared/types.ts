@@ -226,6 +226,23 @@ export interface Trm {
   fetchedAt: string
 }
 
+/** Search results from one store, prices in USD. */
+export interface StoreResult {
+  store: string
+  /** The search (or product) page, to open it yourself. */
+  url: string
+  /** 'login': needs a sign-in; 'check': the store asked for a human check; 'missing': not sold there. */
+  status: 'ok' | 'login' | 'check' | 'missing' | 'error'
+  items: { title: string; priceText: string | null; price: number | null; url: string; image: string | null; condition: string | null }[]
+}
+
+export interface Comparison {
+  query: string
+  updatedAt: string
+  stores: StoreResult[]
+  amazon: StoreResult[]
+}
+
 export interface ExchangeRate {
   /** COP per 1 USD. */
   rate: number

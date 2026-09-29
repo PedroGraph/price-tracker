@@ -35,3 +35,17 @@ export function cachedRate(): ExchangeRate | null {
   if (manual) return { rate: manual, fetchedAt: new Date().toISOString(), source: 'manual' }
   return getSetting<ExchangeRate | null>('exchangeRate', null)
 }
+
+/** Units of each currency per 1 USD (EUR, GBP, MXN…), from the same source, cached 12 hours. */
+export async function usdRates(): Promise<Record<string, number> | null> {
+  const cached = getSetting<{ rates: Record<string, number>; fetchedAt: string } | null>('usdRates', null)
+  if (cached && Date.now() - Date.parse(cached.fetchedAt) < 12 * 60 * 60 * 1000) return cached.rates
+  try {
+    const body = (await (await fetch(SOURCE, { signal: AbortSignal.timeout(10_000) })).json()) as { result: string; rates?: Record<string, number> }
+    if (body.result !== 'success' || !body.rates) throw new Error('No rates')
+    setSetting('usdRates', { rates: body.rates, fetchedAt: new Date().toISOString() })
+    return body.rates
+  } catch {
+    return cached?.rates ?? null
+  }
+}

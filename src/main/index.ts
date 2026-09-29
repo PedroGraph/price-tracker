@@ -257,6 +257,15 @@ function registerIpc(): void {
   handle('window:theme', (_e, dark: unknown) => {
     if (process.platform === 'win32') win?.setTitleBarOverlay(overlayColors(dark === true))
   })
+  handle('products:reviews', (_e, asin: unknown) => (typeof asin === 'string' ? db.getReviews(asin) : null))
+  handle('products:purchase', (_e, asin: unknown, p: unknown) => {
+    if (typeof asin !== 'string') return
+    if (p === null) return db.setPurchase(asin, null)
+    const x = p as { at?: unknown; price?: unknown; returnUntil?: unknown }
+    const date = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
+    if (!date(x.at) || !date(x.returnUntil) || typeof x.price !== 'number' || !(x.price > 0)) throw new Error('Invalid purchase.')
+    db.setPurchase(asin, { at: x.at, price: Math.round(x.price * 100) / 100, returnUntil: x.returnUntil })
+  })
   handle('sales:outlook', () => saleOutlook())
   handle('stats:products', () => db.productStats())
   handle('stats:series', (_e, asins: unknown) =>

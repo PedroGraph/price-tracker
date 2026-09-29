@@ -3,7 +3,8 @@ import { keepOnAmazon } from '../security'
 import { parsePrice } from '@shared/pricing'
 import type { SearchPage, SessionState } from '@shared/types'
 import { wishlistId } from '@shared/urls'
-import { extractCart, extractOffers, extractProduct, extractSearch, extractWishlist, isUnavailable, type PageFlags } from './extractors'
+import { extractCart, extractOffers, extractProduct, extractProductExtras, extractSearch, extractWishlist, isUnavailable, type PageFlags, type RawExtras } from './extractors'
+import { parseCount, parseHistogram, parseRating, parseSalesRank, parseStockLeft } from '@shared/extras'
 
 const PARTITION = 'persist:amazon'
 const BASE = 'https://www.amazon.com'
@@ -119,6 +120,27 @@ export class Scraper {
     const raw = await this.run(`${BASE}/dp/${asin}?th=1&psc=1`, extractProduct)
     const price = parsePrice(raw.priceText, copPerUsd)
     const unavailable = isUnavailable(raw.availabilityText)
+    // Same page, no extra load: stock, rank, category and reviews. Never fails the check.
+    const extras = await this.win.webContents
+      .executeJavaScript(`(${extractProductExtras.toString()})()`)
+      .then((x: RawExtras) => {
+        const rank = parseSalesRank(x.rankText)
+        return {
+          stockLeft: parseStockLeft(x.stockText),
+          salesRank: rank?.rank ?? null,
+          rankCategory: rank?.category ?? null,
+          categoryName: x.categoryName,
+          categoryNode: x.categoryNode,
+          rating: parseRating(x.ratingText),
+          reviewCount: parseCount(x.reviewCountText),
+          reviews: {
+            histogram: parseHistogram(x.histogram),
+            items: x.reviews.map((r) => ({ ...r, stars: parseRating(r.stars) })),
+            updatedAt: new Date().toISOString()
+          }
+        }
+      })
+      .catch(() => null)
     return {
       price,
       available: !unavailable && price !== null,
@@ -130,7 +152,8 @@ export class Scraper {
       importFees: importFees(raw.importFeesText, copPerUsd),
       coupon: raw.coupon,
       deal: raw.deal,
-      image: raw.image && /^https:/.test(raw.image) ? raw.image : null
+      image: raw.image && /^https:/.test(raw.image) ? raw.image : null,
+      extras
     }
   }
 

@@ -336,6 +336,7 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
         <div>
           <h4 title={p.title}>{p.title}</h4>
           {stock}
+          <ProductFacts product={p} />
           {p.tags.length > 0 && (
             <div className="card-tags">
               {p.tags.map((tag) => (
@@ -654,6 +655,33 @@ function ProductTable({ products, onOpen }: { products: Product[]; onOpen: (asin
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+/** One quiet line: rating, sales rank (with its weekly trend), "only N left" and the purchase. */
+function ProductFacts({ product: p }: { product: Product }) {
+  const { t, locale } = useT()
+  const facts: { text: string; className?: string; title?: string }[] = []
+  if (p.stockLeft !== null && p.available) facts.push({ text: t('Only {n} left', { n: p.stockLeft }), className: 'bad-text' })
+  if (p.rating !== null) facts.push({ text: `★ ${p.rating.toLocaleString(locale)}${p.reviewCount ? ` (${p.reviewCount.toLocaleString(locale)})` : ''}` })
+  if (p.salesRank !== null) {
+    // A lower rank number means it sells more.
+    const trend = p.rankWeekAgo === null || p.rankWeekAgo === p.salesRank ? '' : p.salesRank < p.rankWeekAgo ? ' ↑' : ' ↓'
+    facts.push({
+      text: `#${p.salesRank.toLocaleString(locale)}${trend}`,
+      title: t('#{rank} in {category}', { rank: p.salesRank.toLocaleString(locale), category: p.rankCategory ?? '' })
+    })
+  }
+  if (p.purchase) facts.push({ text: t('Bought · return until {date}', { date: p.purchase.returnUntil }), className: 'ok-text' })
+  if (facts.length === 0) return null
+  return (
+    <div className="facts">
+      {facts.map((f) => (
+        <span key={f.text} className={f.className} title={f.title}>
+          {f.text}
+        </span>
+      ))}
     </div>
   )
 }

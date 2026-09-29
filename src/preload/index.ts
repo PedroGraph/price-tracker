@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { BackupInfo } from '../main/backup'
-import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Suggestion, AlertItem, SaleOutlook, ProductStats, Status, Threshold, TrackerEvent } from '@shared/types'
+import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Suggestion, AlertItem, SaleOutlook, ProductStats, ReviewsInfo, Purchase, Status, Threshold, TrackerEvent } from '@shared/types'
 
 /** The only surface the UI can reach. Each method maps to one IPC channel. */
 const api = {
@@ -33,6 +33,8 @@ const api = {
   listSuggestions: (): Promise<Suggestion[]> => ipcRenderer.invoke('suggestions:list'),
   /** Matches the window buttons to the app's theme. */
   setWindowTheme: (dark: boolean): Promise<void> => ipcRenderer.invoke('window:theme', dark),
+  getReviews: (asin: string): Promise<ReviewsInfo | null> => ipcRenderer.invoke('products:reviews', asin),
+  setPurchase: (asin: string, p: Purchase | null): Promise<void> => ipcRenderer.invoke('products:purchase', asin, p),
   saleOutlook: (): Promise<SaleOutlook | null> => ipcRenderer.invoke('sales:outlook'),
   productStats: (): Promise<ProductStats[]> => ipcRenderer.invoke('stats:products'),
   priceSeries: (asins: string[]): Promise<{ asin: string; points: { at: string; price: number }[] }[]> =>

@@ -150,5 +150,7 @@ export const EVENT_LABEL: Record<TrackerEvent['type'], string> = {
   target_reached: 'Target price reached',
   all_time_low: 'New all-time low',
   coupon_added: 'Coupon available',
-  deal_started: 'Deal started'
+  deal_started: 'Deal started',
+  low_stock: 'Running out',
+  refund_chance: 'Cheaper than you paid'
 }

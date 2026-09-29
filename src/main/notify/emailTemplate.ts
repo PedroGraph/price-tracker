@@ -77,6 +77,10 @@ function describe(a: EmailAlert, t: (s: string, v?: Record<string, string | numb
       return { tone: 'good' as Tone, pill: `▼ ${t('Lowest ever')}`, heading: t('Lowest price since tracking started') }
     case 'coupon_added':
       return { tone: 'good' as Tone, pill: `% ${t('Coupon')}`, heading: t('A coupon is available') }
+    case 'low_stock':
+      return { tone: 'bad' as Tone, pill: `● ${t('Running out')}`, heading: t('Only a few left') }
+    case 'refund_chance':
+      return { tone: 'good' as Tone, pill: `↩ ${t('Cheaper than you paid')}`, heading: t('You could return it and buy it again') }
     case 'deal_started':
       return { tone: 'up' as Tone, pill: `★ ${t('Deal started')}`, heading: t('A deal just started') }
     default:

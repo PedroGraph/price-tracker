@@ -3,7 +3,7 @@ import { ArrowUpRight } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { conditionGroup, offerUrl, priceWithCoupon, sellerUrl, thresholdInUsd } from '@shared/pricing'
 import { priceInsights } from '@shared/insights'
-import type { PriceReading, Product, Threshold, TrackerEvent } from '@shared/types'
+import type { PriceReading, Product, ReviewsInfo, Threshold, TrackerEvent } from '@shared/types'
 import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
@@ -258,6 +258,8 @@ export function ProductDetail({
           )}
         </div>
 
+        <ReviewsCard product={product} />
+
         <div className="card">
           <div className="card-head">
             <h3>
@@ -437,6 +439,7 @@ export function ProductDetail({
           </p>
         </div>
 
+        <PurchaseCard product={product} onChanged={onChanged} notify={notify} />
         <TagsCard product={product} allTags={allTags} onChanged={onChanged} />
 
         <div className="card">
@@ -495,6 +498,14 @@ export function ProductDetail({
             <Toggle on={product.trackOffers} onChange={(on) => void toggleOffers(on)} label={t('Track other sellers')} />
           </div>
           {product.trackOffers && offers.length === 0 && <p className="explain">{t('Sellers appear after the next check.')}</p>}
+          {product.trackOffers && product.resalePrice !== null && (
+            <p className="explain">
+              {t('Amazon Resale (returns inspected by Amazon): {price}', { price: fmt(product.resalePrice) })}
+              {product.lastPrice !== null && product.resalePrice < product.lastPrice && (
+                <strong className="ok-text"> · {t('{amount} less', { amount: fmt(product.lastPrice - product.resalePrice) })}</strong>
+              )}
+            </p>
+          )}
           {conditions.length > 1 && (
             <div className="conditions">
               {conditions.map((c) => {
@@ -616,6 +627,163 @@ function TagsCard({ product, allTags, onChanged }: { product: Product; allTags: 
             </button>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+/** What the product page shows about reviews: stars, how they split, and the top reviews. */
+function ReviewsCard({ product }: { product: Product }) {
+  const { t, locale } = useT()
+  const [info, setInfo] = useState<ReviewsInfo | null>(null)
+  const [open, setOpen] = useState<number | null>(null)
+  useEffect(() => {
+    void window.api.getReviews(product.asin).then(setInfo)
+  }, [product.asin, product.lastCheckedAt])
+  if (product.rating === null && !info) return null
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3>{t('Reviews on Amazon')}</h3>
+        {product.salesRank !== null && (
+          <span className="muted small" title={t('Best Sellers Rank')}>
+            {t('#{rank} in {category}', { rank: product.salesRank.toLocaleString(locale), category: product.rankCategory ?? '' })}
+            {product.rankWeekAgo !== null && product.rankWeekAgo !== product.salesRank && (
+              <span className={product.salesRank < product.rankWeekAgo ? 'ok-text' : 'bad-text'}>
+                {' '}
+                {product.salesRank < product.rankWeekAgo ? '↑' : '↓'} {t('vs. a week ago (#{rank})', { rank: product.rankWeekAgo.toLocaleString(locale) })}
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+      <div className="reviews-top">
+        <div className="rating-big">
+          <strong>{product.rating?.toLocaleString(locale) ?? '—'}</strong>
+          <span className="stars">{'★'.repeat(Math.round(product.rating ?? 0))}{'☆'.repeat(5 - Math.round(product.rating ?? 0))}</span>
+          <small className="muted">{t('{n} ratings', { n: (product.reviewCount ?? 0).toLocaleString(locale) })}</small>
+        </div>
+        {info && (
+          <div className="histogram">
+            {info.histogram.map((pct, i) => (
+              <div key={i} className="bar-row">
+                <span>{5 - i} ★</span>
+                <div className="bar">
+                  <i style={{ width: `${pct}%` }} />
+                </div>
+                <span className="muted">{pct}%</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {info && info.items.length > 0 && (
+        <ul className="review-list">
+          {info.items.map((r, i) => (
+            <li key={i}>
+              <div className="review-head">
+                {r.stars !== null && <span className="stars">{'★'.repeat(Math.round(r.stars))}{'☆'.repeat(5 - Math.round(r.stars))}</span>}
+                <strong>{r.title}</strong>
+              </div>
+              <small className="muted">
+                {[r.date, r.variant, r.verified ? t('Verified purchase') : null].filter(Boolean).join(' · ')}
+              </small>
+              {r.body && (
+                <p className={open === i ? 'review-body open' : 'review-body'} onClick={() => setOpen(open === i ? null : i)}>
+                  {r.body}
+                </p>
+              )}
+              {r.helpful && <small className="faint">{r.helpful}</small>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+const addDays = (iso: string, days: number): string => {
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(y, m - 1, d + days)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+/** "I bought it": keeps watching the price until the return window closes. */
+function PurchaseCard({ product, onChanged, notify }: { product: Product; onChanged: () => void; notify: Notify }) {
+  const { t } = useT()
+  const { fmt, toDisplay, fromDisplay } = useMoney()
+  const today = addDays(new Date().toISOString().slice(0, 10), 0)
+  const [editing, setEditing] = useState(false)
+  const [at, setAt] = useState(today)
+  const [price, setPrice] = useState(product.lastPrice !== null ? String(Math.round(toDisplay(product.lastPrice) * 100) / 100) : '')
+  const [days, setDays] = useState('30')
+  const p = product.purchase
+
+  const save = async (): Promise<void> => {
+    const usd = fromDisplay(Number(price))
+    if (!(usd > 0) || !(Number(days) >= 1)) return notify(t('Enter the price you paid and the return days.'), true)
+    await window.api.setPurchase(product.asin, { at, price: Math.round(usd * 100) / 100, returnUntil: addDays(at, Number(days)) })
+    setEditing(false)
+    onChanged()
+    notify(t("Got it. You'll get an alert if it gets cheaper before {date}.", { date: addDays(at, Number(days)) }))
+  }
+
+  return (
+    <div className="card">
+      <h3>{t('Already bought it?')}</h3>
+      {p && !editing ? (
+        <>
+          <p className="sub">
+            {t('Bought on {date} for {price}. Watching the price until {until}, the last day to return it.', {
+              date: p.at,
+              price: fmt(p.price),
+              until: p.returnUntil
+            })}
+          </p>
+          {product.lastPrice !== null && product.lastPrice < p.price && today <= p.returnUntil && (
+            <p className="ok-text">{t('It costs {amount} less now: you could return it and buy it again.', { amount: fmt(p.price - product.lastPrice) })}</p>
+          )}
+          <div className="row" style={{ marginTop: 10 }}>
+            <button className="btn" onClick={() => setEditing(true)}>
+              {t('Edit')}
+            </button>
+            <button className="btn link" onClick={() => void window.api.setPurchase(product.asin, null).then(onChanged)}>
+              {t('Remove')}
+            </button>
+          </div>
+        </>
+      ) : editing ? (
+        <div className="purchase-form">
+          <label>
+            <span>{t('Date')}</span>
+            <input type="date" value={at} max={today} onChange={(e) => setAt(e.target.value)} />
+          </label>
+          <label>
+            <span>{t('Price paid')}</span>
+            <input type="number" min={0} step="any" className="mono" value={price} onChange={(e) => setPrice(e.target.value)} />
+          </label>
+          <label>
+            <span>{t('Return days')}</span>
+            <input type="number" min={1} max={365} className="mono" value={days} onChange={(e) => setDays(e.target.value)} />
+          </label>
+          <div className="row">
+            <button className="btn primary" onClick={() => void save()}>
+              {t('Save')}
+            </button>
+            <button className="btn link" onClick={() => setEditing(false)}>
+              {t('Cancel')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="sub">
+            {t("Mark it as bought and the app keeps watching it during Amazon's return window. If it gets cheaper, you'll know you can return it and buy it again.")}
+          </p>
+          <button className="btn" style={{ marginTop: 10 }} onClick={() => setEditing(true)}>
+            {t('I bought it')}
+          </button>
+        </>
       )}
     </div>
   )

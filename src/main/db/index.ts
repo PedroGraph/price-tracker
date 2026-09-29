@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import { app } from 'electron'
 import { join } from 'node:path'
-import type { ProductSource, RunRecord, DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent, AlertItem, ProductStats } from '@shared/types'
+import type { ProductSource, RunRecord, DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent, AlertItem, ProductStats, Purchase, ReviewsInfo } from '@shared/types'
 import { volatility } from '@shared/insights'
 
 let db: DatabaseSync
@@ -71,7 +71,16 @@ const MIGRATIONS = [
      unreadable INTEGER NOT NULL,
      alerts INTEGER NOT NULL
    );`,
-  `ALTER TABLE products ADD COLUMN tags TEXT NOT NULL DEFAULT '[]';`
+  `ALTER TABLE products ADD COLUMN tags TEXT NOT NULL DEFAULT '[]';`,
+  `ALTER TABLE products ADD COLUMN stock_left INTEGER; ALTER TABLE products ADD COLUMN sales_rank INTEGER;
+   ALTER TABLE products ADD COLUMN rank_category TEXT; ALTER TABLE products ADD COLUMN category_name TEXT;
+   ALTER TABLE products ADD COLUMN category_node TEXT; ALTER TABLE products ADD COLUMN rating REAL;
+   ALTER TABLE products ADD COLUMN review_count INTEGER; ALTER TABLE products ADD COLUMN reviews TEXT;
+   ALTER TABLE products ADD COLUMN resale_price REAL; ALTER TABLE products ADD COLUMN purchased_at TEXT;
+   ALTER TABLE products ADD COLUMN purchased_price REAL; ALTER TABLE products ADD COLUMN return_until TEXT;
+   ALTER TABLE products ADD COLUMN refund_alerted_price REAL;
+   CREATE TABLE rank_history (asin TEXT NOT NULL, rank INTEGER NOT NULL, checked_at TEXT NOT NULL);
+   CREATE INDEX rank_history_asin ON rank_history (asin, checked_at);`
 ]
 
 export function openDb(file = join(app.getPath('userData'), 'tracker.db')): void {
@@ -131,6 +140,19 @@ function toProduct(r: ProductRow): Product {
     lowestPrice: null,
     lowest30: null,
     tags: parseTags(r.tags),
+    stockLeft: (r.stock_left as number) ?? null,
+    salesRank: (r.sales_rank as number) ?? null,
+    rankCategory: (r.rank_category as string) ?? null,
+    rankWeekAgo: null,
+    categoryName: (r.category_name as string) ?? null,
+    categoryNode: (r.category_node as string) ?? null,
+    rating: (r.rating as number) ?? null,
+    reviewCount: (r.review_count as number) ?? null,
+    resalePrice: (r.resale_price as number) ?? null,
+    purchase:
+      r.purchased_at && r.return_until
+        ? { at: r.purchased_at as string, price: r.purchased_price as number, returnUntil: r.return_until as string }
+        : null,
     avg30: null,
     runs30: 0,
     spanDays30: 0
@@ -138,7 +160,7 @@ function toProduct(r: ProductRow): Product {
 }
 
 const ALERT_TYPES =
-  "('price_up','price_down','out_of_stock','back_in_stock','target_reached','all_time_low','coupon_added','deal_started')"
+  "('price_up','price_down','out_of_stock','back_in_stock','target_reached','all_time_low','coupon_added','deal_started','low_stock','refund_chance')"
 const RUN = 'substr(checked_at, 1, 16)'
 
 /** Adds the derived fields the dashboard shows. */
@@ -205,7 +227,8 @@ function enrich(p: Product): Product {
     spark,
     sellerCount: p.trackOffers ? sellers : 0,
     baseSince: baseEvent?.created_at ?? null,
-    backInStock: !!back && p.available === true
+    backInStock: !!back && p.available === true,
+    rankWeekAgo: p.salesRank !== null ? rankWeekAgo(p.asin) : null
   }
 }
 
@@ -275,8 +298,9 @@ export function syncSources(
     if (managed.length === 0) return
     db.prepare(
       `UPDATE products SET active = 0 WHERE source IN (${managed.map(() => '?').join(',')})
-       AND asin NOT IN (${asins.map(() => '?').join(',') || "''"})`
-    ).run(...managed, ...asins)
+       AND asin NOT IN (${asins.map(() => '?').join(',') || "''"})
+       AND (return_until IS NULL OR return_until < ?)`
+    ).run(...managed, ...asins, now().slice(0, 10))
   })
 }
 
@@ -588,4 +612,76 @@ export function productStats(): ProductStats[] {
       droppedTotal: Math.round((d?.total ?? 0) * 100) / 100
     }
   })
+}
+
+/** Stock, rank, category and reviews read from the product page on this check. */
+export function setProductExtras(
+  asin: string,
+  e: {
+    stockLeft: number | null
+    salesRank: number | null
+    rankCategory: string | null
+    categoryName: string | null
+    categoryNode: string | null
+    rating: number | null
+    reviewCount: number | null
+    reviews: ReviewsInfo | null
+    resalePrice: number | null | undefined
+  }
+): void {
+  db.prepare(
+    `UPDATE products SET stock_left = ?, sales_rank = COALESCE(?, sales_rank), rank_category = COALESCE(?, rank_category),
+     category_name = COALESCE(?, category_name), category_node = COALESCE(?, category_node), rating = COALESCE(?, rating),
+     review_count = COALESCE(?, review_count), reviews = COALESCE(?, reviews) WHERE asin = ?`
+  ).run(
+    e.stockLeft,
+    e.salesRank,
+    e.rankCategory,
+    e.categoryName,
+    e.categoryNode,
+    e.rating,
+    e.reviewCount,
+    e.reviews && e.reviews.items.length ? JSON.stringify(e.reviews) : null,
+    asin
+  )
+  // Undefined: sellers weren't checked this time, so keep what we had.
+  if (e.resalePrice !== undefined) db.prepare('UPDATE products SET resale_price = ? WHERE asin = ?').run(e.resalePrice, asin)
+  if (e.salesRank !== null) db.prepare('INSERT INTO rank_history (asin, rank, checked_at) VALUES (?, ?, ?)').run(asin, e.salesRank, now())
+}
+
+/** The rank closest to a week ago, for the trend arrow. */
+export function rankWeekAgo(asin: string): number | null {
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString()
+  const row = db.prepare('SELECT rank FROM rank_history WHERE asin = ? AND checked_at <= ? ORDER BY checked_at DESC LIMIT 1').get(asin, weekAgo) as
+    | { rank: number }
+    | undefined
+  return row?.rank ?? null
+}
+
+export function getReviews(asin: string): ReviewsInfo | null {
+  const row = db.prepare('SELECT reviews FROM products WHERE asin = ?').get(asin) as { reviews: string | null } | undefined
+  try {
+    return row?.reviews ? (JSON.parse(row.reviews) as ReviewsInfo) : null
+  } catch {
+    return null
+  }
+}
+
+/** Marks a product as bought (or clears it with null). */
+export function setPurchase(asin: string, p: Purchase | null): void {
+  db.prepare('UPDATE products SET purchased_at = ?, purchased_price = ?, return_until = ?, refund_alerted_price = NULL WHERE asin = ?').run(
+    p?.at ?? null,
+    p?.price ?? null,
+    p?.returnUntil ?? null,
+    asin
+  )
+}
+
+export function getRefundAlertedPrice(asin: string): number | null {
+  const row = db.prepare('SELECT refund_alerted_price AS p FROM products WHERE asin = ?').get(asin) as { p: number | null } | undefined
+  return row?.p ?? null
+}
+
+export function setRefundAlertedPrice(asin: string, price: number): void {
+  db.prepare('UPDATE products SET refund_alerted_price = ? WHERE asin = ?').run(price, asin)
 }

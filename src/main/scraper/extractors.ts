@@ -304,3 +304,68 @@ export function extractSearch(): PageFlags & {
   const found = !!document.querySelector('.s-main-slot, .s-result-list')
   return { loggedOut: false, captcha, results, found, filters, sorts, sort: sortSelect?.value ?? null }
 }
+
+export interface RawReview {
+  title: string | null
+  stars: string | null
+  date: string | null
+  body: string | null
+  variant: string | null
+  verified: boolean
+  helpful: string | null
+}
+
+export interface RawExtras {
+  /** "Only 3 left in stock" / "Solo quedan 3 en stock". */
+  stockText: string | null
+  /** The "Best Sellers Rank" line, e.g. "#5 in Surveillance Video Recorders". */
+  rankText: string | null
+  /** Last breadcrumb: the product's category and its Amazon node id. */
+  categoryName: string | null
+  categoryNode: string | null
+  ratingText: string | null
+  reviewCountText: string | null
+  /** "87 percent of reviews have 5 stars" labels, as shown. */
+  histogram: string[]
+  reviews: RawReview[]
+}
+
+/** Stock, sales rank, category and reviews, as shown on the product page. */
+export function extractProductExtras(): RawExtras {
+  const text = (el: Element | null | undefined): string | null => el?.textContent?.replace(/\s+/g, ' ').trim() || null
+  const hook = (root: Element, ...names: string[]): Element | null => {
+    for (const n of names) {
+      const el = root.querySelector(`[data-hook="${n}"]`)
+      if (el) return el
+    }
+    return null
+  }
+  const availability = text(document.querySelector('#availability span, #availability'))
+  const rankRow = [
+    ...document.querySelectorAll('#detailBulletsWrapper_feature_div li, #productDetails_detailBullets_sections1 tr, #prodDetails tr, table.prodDetTable tr')
+  ].find((e) => /best sellers rank|m[aá]s vendidos/i.test(e.textContent ?? ''))
+  const crumbs = [...document.querySelectorAll('#wayfinding-breadcrumbs_feature_div a')]
+  const lastCrumb = crumbs.at(-1)
+  const node = lastCrumb ? /[?&]node=(\d+)/.exec(lastCrumb.getAttribute('href') ?? '')?.[1] ?? null : null
+  const reviews = [...document.querySelectorAll('[data-hook="review"]')].slice(0, 6).map((r) => ({
+    title: text(hook(r, 'review-title', 'reviewTitle'))?.replace(/^\d(?:[.,]\d)? (?:out of|de) 5 (?:stars|estrellas)\s*/i, '') ?? null,
+    stars: text(hook(r, 'review-star-rating', 'cmps-review-star-rating')),
+    date: text(hook(r, 'review-date')),
+    body: (text(hook(r, 'reviewRichContentContainer', 'review-body')) ?? '').replace(/(Leer más|Read more)\s*$/i, '').slice(0, 600) || null,
+    variant: text(hook(r, 'format-strip')),
+    verified: !!hook(r, 'avp-badge'),
+    helpful: text(hook(r, 'helpful-vote-statement'))
+  }))
+  return {
+    stockText: availability && /\d/.test(availability) && /left|quedan?|only|solo/i.test(availability) ? availability.slice(0, 120) : null,
+    rankText: rankRow ? text(rankRow)?.slice(0, 300) ?? null : null,
+    categoryName: text(lastCrumb),
+    categoryNode: node,
+    ratingText: text(document.querySelector('#acrPopover .a-icon-alt, [data-hook="rating-out-of-text"]')),
+    reviewCountText: text(document.querySelector('#acrCustomerReviewText')),
+    histogram: [...document.querySelectorAll('#histogramTable a[aria-label], [data-hook="histogram-table"] a[aria-label]')].map(
+      (a) => a.getAttribute('aria-label') ?? ''
+    ),
+    reviews
+  }
+}

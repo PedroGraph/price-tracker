@@ -118,7 +118,7 @@ async function track(): Promise<RunOutcome> {
     for (const product of db.listProducts(true)) {
       checked++
       await scraper.pause()
-      const { image, title, coupon, deal, importFees, readable, ...page } = await scraper.product(product.asin, rate)
+      const { image, title, coupon, deal, importFees, readable, extras, ...page } = await scraper.product(product.asin, rate)
       if (title && product.title === product.asin) db.setProductTitle(product.asin, title)
       if (image && (!product.image || /loadIndicators/.test(product.image))) db.setProductImage(product.asin, image)
 
@@ -141,9 +141,12 @@ async function track(): Promise<RunOutcome> {
         seller: page.seller,
         sellerId: null
       }
+      // Cheapest "Amazon Resale" (Warehouse) offer: returns Amazon inspected, sold for less.
+      let resale: number | null = null
       if (product.trackOffers) {
         await scraper.pause()
         for (const offer of await scraper.offers(product.asin, rate)) {
+          if (/amazon resale|warehouse/i.test(offer.seller) && (resale === null || offer.price < resale)) resale = offer.price
           db.addReading({ asin: product.asin, ...offer, source: 'offer', available: true })
           if (best.price === null || offer.price < best.price) {
             best = { price: offer.price, shipping: offer.shipping, seller: offer.seller, sellerId: offer.sellerId }
@@ -151,6 +154,7 @@ async function track(): Promise<RunOutcome> {
         }
       }
       const available = page.available || (product.trackOffers && best.price !== null)
+      if (extras) db.setProductExtras(product.asin, { ...extras, resalePrice: product.trackOffers ? resale : undefined })
       // Up/down alerts compare the price, or the delivered total when that's chosen in Settings.
       const compared = settings.alertOnTotal ? landedTotal(best.price, best.shipping, importFees) : best.price
 
@@ -170,12 +174,26 @@ async function track(): Promise<RunOutcome> {
         readingsBefore: before.readings,
         baseEvents: result.events
       })
-      for (const type of [...result.events, ...extra, ...promos]) {
+      // Running out: "only N left" shows up (or drops to 5 or fewer) while it's in stock.
+      const stockLeft = extras?.stockLeft ?? null
+      const lowStock =
+        available && stockLeft !== null && stockLeft <= 5 && (product.stockLeft === null || product.stockLeft > 5) ? (['low_stock'] as const) : []
+      // Bought and still returnable: it got cheaper than what was paid (once per new low).
+      const refund: 'refund_chance'[] = []
+      if (product.purchase && available && best.price !== null && new Date().toISOString().slice(0, 10) <= product.purchase.returnUntil) {
+        const paid = product.purchase.price
+        const alerted = db.getRefundAlertedPrice(product.asin)
+        if (best.price <= paid - Math.max(1, paid * 0.01) && (alerted === null || best.price < alerted)) {
+          refund.push('refund_chance')
+          db.setRefundAlertedPrice(product.asin, best.price)
+        }
+      }
+      for (const type of [...result.events, ...extra, ...promos, ...lowStock, ...refund]) {
         const moved = type === 'price_up' || type === 'price_down' || type === 'tracking_started'
         const newPrice = moved ? compared : best.price
         db.addEvent(product.asin, type, product.basePrice, newPrice)
         if (type !== 'tracking_started') {
-          alerts.push({ product: { ...product, coupon, deal }, type, oldPrice: product.basePrice, ...best, newPrice })
+          alerts.push({ product: { ...product, coupon, deal, stockLeft }, type, oldPrice: product.basePrice, ...best, newPrice })
         }
       }
       db.updateProductState(product.asin, {

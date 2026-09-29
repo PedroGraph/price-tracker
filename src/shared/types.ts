@@ -58,6 +58,36 @@ export interface Product {
   lowest30: number | null
   /** Your own labels, e.g. "Gifts" or "Office". */
   tags: string[]
+  /** "Only N left" on the product page; null when Amazon doesn't say. */
+  stockLeft: number | null
+  /** Top-level Best Sellers Rank and its category, and the rank a week ago for the trend. */
+  salesRank: number | null
+  rankCategory: string | null
+  rankWeekAgo: number | null
+  /** The product's category (last breadcrumb) and Amazon node id, used by the deals radar. */
+  categoryName: string | null
+  categoryNode: string | null
+  rating: number | null
+  reviewCount: number | null
+  /** Cheapest "Amazon Resale" (returned, inspected by Amazon) offer, when other sellers are tracked. */
+  resalePrice: number | null
+  /** Marked as bought: watched until the return window closes. */
+  purchase: Purchase | null
+}
+
+export interface Purchase {
+  /** YYYY-MM-DD */
+  at: string
+  price: number
+  /** YYYY-MM-DD, last day to return it. */
+  returnUntil: string
+}
+
+export interface ReviewsInfo {
+  /** Percent of reviews with 5, 4, 3, 2 and 1 stars. */
+  histogram: number[]
+  items: { title: string | null; stars: number | null; date: string | null; body: string | null; variant: string | null; verified: boolean; helpful: string | null }[]
+  updatedAt: string
 }
 
 /** One tracking run, for the diagnostics list. */
@@ -146,6 +176,8 @@ export type EventType =
   | 'all_time_low'
   | 'coupon_added'
   | 'deal_started'
+  | 'low_stock'
+  | 'refund_chance'
 
 export interface TrackerEvent {
   id: number

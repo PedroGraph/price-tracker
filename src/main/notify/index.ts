@@ -28,7 +28,9 @@ const LABELS: Record<EventType, string> = {
   target_reached: 'Target price reached',
   all_time_low: 'New all-time low',
   coupon_added: 'Coupon available',
-  deal_started: 'Deal started'
+  deal_started: 'Deal started',
+  low_stock: 'Running out',
+  refund_chance: 'Cheaper than you paid'
 }
 
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
@@ -54,6 +56,14 @@ function summary(a: Alert, rate: number | null): string {
       : (a.product.coupon ?? '')
   }
   if (a.type === 'deal_started') return tr('{deal} at {price}', { deal: a.product.deal ?? '', price: money(a.newPrice, rate) })
+  if (a.type === 'low_stock') return tr('Only {n} left at {price}', { n: a.product.stockLeft ?? '?', price: money(a.newPrice, rate) })
+  if (a.type === 'refund_chance' && a.product.purchase) {
+    return tr('Now {price}; you paid {paid}. You can return it until {date} and buy it again.', {
+      price: money(a.newPrice, rate),
+      paid: money(a.product.purchase.price, rate),
+      date: a.product.purchase.returnUntil
+    })
+  }
   if (a.type === 'all_time_low') return tr('{price} is the lowest price since tracking started', { price: money(a.newPrice, rate) })
   return tr('The product is currently unavailable')
 }

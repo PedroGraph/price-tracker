@@ -233,6 +233,8 @@ export interface RawSearchResult {
   sponsored: boolean
   /** "Save 15%" when the product has a coupon to clip. */
   coupon: string | null
+  /** The struck-through "List" / "Typical" price, when there is a discount. */
+  listPriceText: string | null
 }
 
 /** Results of an Amazon search page (/s?k=…). */
@@ -264,6 +266,7 @@ export function extractSearch(): PageFlags & {
       title: text(row.querySelector('h2 span')) ?? text(row.querySelector('h2')) ?? asin,
       image: src && /^https:/.test(src) ? src : null,
       priceText: text(row.querySelector('.a-price:not([data-a-strike]) .a-offscreen')),
+      listPriceText: text(row.querySelector('.a-price[data-a-strike] .a-offscreen')),
       rating: text(row.querySelector('.a-icon-star-small .a-icon-alt, .a-icon-star-mini .a-icon-alt, i[class*="a-star"] .a-icon-alt')),
       reviews:
         row.querySelector('a[href*="customerReviews"] span')?.textContent?.replace(/[^\d.,KkMm]/g, '') || null,

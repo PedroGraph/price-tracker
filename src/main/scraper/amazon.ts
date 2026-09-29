@@ -113,7 +113,7 @@ export class Scraper {
   async search(url: string, copPerUsd: number | null): Promise<SearchPage> {
     const { results, found, filters, sorts, sort } = await this.run(url, extractSearch, false)
     if (!found) throw new PageChangedError('Search page: the results list was not found')
-    return { results: results.map(({ priceText, ...r }) => ({ ...r, price: parsePrice(priceText, copPerUsd) })), filters, sorts, sort }
+    return { results: results.map(({ priceText, listPriceText, ...r }) => ({ ...r, price: parsePrice(priceText, copPerUsd), listPrice: parsePrice(listPriceText, copPerUsd) })), filters, sorts, sort }
   }
 
   async product(asin: string, copPerUsd: number | null) {

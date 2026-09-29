@@ -58,8 +58,8 @@ export function isAllowedExternal(url: string): boolean {
  */
 export function searchUrl(p: SearchParams): string | null {
   const query = typeof p.query === 'string' ? p.query.trim() : ''
-  if (!query || query.length > 200) return null
   const rh = typeof p.rh === 'string' ? p.rh : ''
+  if ((!query && !rh) || query.length > 200) return null
   const sort = typeof p.sort === 'string' ? p.sort : ''
   if (rh.length > 1000 || !/^[\w:%,|.\-]*$/.test(rh) || !/^[\w-]{0,40}$/.test(sort)) return null
   const cents = (v: unknown): string => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? String(Math.round(v * 100)) : '')
@@ -67,11 +67,14 @@ export function searchUrl(p: SearchParams): string | null {
   const parts = rh.split(',').filter((r) => r && !r.startsWith('p_36:'))
   if (min || max) parts.push(`p_36:${min}-${max}`)
   const url = new URL('https://www.amazon.com/s')
-  url.searchParams.set('k', query)
+  if (query) url.searchParams.set('k', query)
   if (parts.length) url.searchParams.set('rh', parts.join(','))
   if (sort) url.searchParams.set('s', sort)
   return url.toString()
 }
+
+/** Amazon's "All discounts" search refinement (Deals & discounts). */
+export const DISCOUNT_FILTER = 'p_n_deal_type:23566065011'
 
 /** Amazon's "Coupons" search refinement (Deals & discounts → Coupons). */
 export const COUPON_FILTER = 'p_n_deal_type:210906366011'

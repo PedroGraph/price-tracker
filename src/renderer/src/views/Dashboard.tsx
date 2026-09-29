@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, ChevronRight, ExternalLink, Loader2, Plus, LayoutGrid, Search, ShoppingBag, ShoppingCart, Star, Table2, X } from 'lucide-react'
+import { Check, ChevronRight, ExternalLink, Flame, Loader2, Plus, LayoutGrid, Search, ShoppingBag, ShoppingCart, Star, Table2, X } from 'lucide-react'
 import type { Notify } from '../App'
-import type { DashboardStats, Product, ProductSource, SaleOutlook, SearchPage, SearchParams, Status } from '@shared/types'
+import type { DashboardStats, Product, ProductSource, RadarDeal, SaleOutlook, SearchPage, SearchParams, Status } from '@shared/types'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
 import { landedTotal } from '@shared/pricing'
@@ -9,7 +9,7 @@ import { BuySignal, ChangePill, DeliveredTotal, Sparkline, Thumb, timeAgo } from
 
 type Filter = 'all' | 'down' | 'up' | 'out'
 
-type Tab = 'all' | ProductSource | 'amazon' | `#${string}`
+type Tab = 'all' | ProductSource | 'amazon' | 'deals' | `#${string}`
 
 // Where each product comes from, in display order. Labels are English keys.
 const TABS: ('all' | ProductSource)[] = ['all', 'cart', 'saved', 'wishlist', 'manual']
@@ -64,7 +64,8 @@ export function Dashboard({
   const [amazon, setAmazon] = useState<AmazonSearch | null>(null)
   // With an Amazon search open, the page switches between it and your own list.
   const [tab, setTab] = useState<Tab>('all')
-  const showAmazon = amazon !== null && tab === 'amazon'
+  // Amazon results and the deals radar replace the product list.
+  const showAmazon = (amazon !== null && tab === 'amazon') || tab === 'deals'
   const [layout, setLayoutState] = useState<'grid' | 'table'>(() => {
     try {
       return localStorage.getItem('layout') === 'table' ? 'table' : 'grid'
@@ -243,6 +244,9 @@ export function Dashboard({
                 #{tag} <span className="count">{visible.filter((p) => p.tags.includes(tag)).length}</span>
               </button>
             ))}
+            <button className={tab === 'deals' ? 'tab on deals-tab' : 'tab deals-tab'} onClick={() => setTab('deals')}>
+              <Flame size={14} /> {t('Deals radar')}
+            </button>
             {amazon && (
               <button className={tab === 'amazon' ? 'tab on' : 'tab'} onClick={() => setTab('amazon')}>
                 <Search size={14} /> {t('On Amazon: “{q}”', { q: amazon.params.query })}{' '}
@@ -292,7 +296,8 @@ export function Dashboard({
               <Search size={14} /> {t('Press Enter to also search “{q}” on Amazon', { q: query.trim() })}
             </p>
           )}
-          {showAmazon && (
+          {tab === 'deals' && <DealsRadar tracked={new Set(products.map((p) => p.asin))} onTrack={(asin) => void add(asin)} />}
+          {showAmazon && tab === 'amazon' && amazon && (
             <AmazonResults
               search={amazon}
               tracked={new Set(products.map((p) => p.asin))}
@@ -683,5 +688,96 @@ function ProductFacts({ product: p }: { product: Product }) {
         </span>
       ))}
     </div>
+  )
+}
+
+/** Discounted products in the categories you track, biggest discount first. */
+function DealsRadar({ tracked, onTrack }: { tracked: Set<string>; onTrack: (asin: string) => void }) {
+  const { t } = useT()
+  const { fmt } = useMoney()
+  const [radar, setRadar] = useState<{ updatedAt: string | null; deals: RadarDeal[] } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [category, setCategory] = useState<string | null>(null)
+  useEffect(() => {
+    void window.api.getRadar().then(setRadar)
+  }, [])
+  const refresh = async (): Promise<void> => {
+    setBusy(true)
+    try {
+      setRadar(await window.api.refreshRadar())
+    } finally {
+      setBusy(false)
+    }
+  }
+  const deals = (radar?.deals ?? []).filter((d) => !category || d.category === category)
+  const categories = [...new Set((radar?.deals ?? []).map((d) => d.category))]
+
+  return (
+    <section className="group">
+      <div className="radar-head">
+        <p className="muted">
+          {t('Discounts on Amazon in the categories of your products. Updated every 6 hours.')}
+          {radar?.updatedAt && ` ${t('Last: {when}.', { when: timeAgo(radar.updatedAt, t) })}`}
+        </p>
+        <button className="btn" onClick={() => void refresh()} disabled={busy}>
+          {busy ? <Loader2 size={15} className="spin" /> : <Flame size={15} />} {busy ? t('Looking…') : t('Update now')}
+        </button>
+      </div>
+      {categories.length > 1 && (
+        <div className="chips radar-cats">
+          <button className={category === null ? 'chip on' : 'chip'} onClick={() => setCategory(null)}>
+            {t('All')}
+          </button>
+          {categories.map((c) => (
+            <button key={c} className={category === c ? 'chip on' : 'chip'} onClick={() => setCategory(c)}>
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+      {!radar || radar.deals.length === 0 ? (
+        <p className="muted">
+          {radar?.updatedAt
+            ? t('No discounts found in your categories right now.')
+            : t('The radar needs one check to learn the categories of your products, then press Update now.')}
+        </p>
+      ) : (
+        <div className="card result-list">
+          {deals.map((d) => (
+            <div key={d.asin} className="result">
+              <Thumb src={d.image} />
+              <div className="info">
+                <h4 title={d.title}>{d.title}</h4>
+                <div className="meta">
+                  <span className="deal-off">−{d.discount}%</span>
+                  <span className="faint strike">{fmt(d.listPrice)}</span>
+                  {d.rating && (
+                    <span>
+                      <Star size={13} className="star" /> {d.rating.split(' ')[0]}
+                    </span>
+                  )}
+                  <span className="faint">{d.category}</span>
+                </div>
+              </div>
+              <span className="price">{fmt(d.price)}</span>
+              <div className="actions">
+                <button className="btn" title={t('Open on Amazon')} onClick={() => void window.api.openOnAmazon(d.asin)}>
+                  <ExternalLink size={15} />
+                </button>
+                {tracked.has(d.asin) ? (
+                  <span className="tracked">
+                    <Check size={15} /> {t('Tracking')}
+                  </span>
+                ) : (
+                  <button className="btn primary" onClick={() => onTrack(d.asin)}>
+                    <Plus size={15} /> {t('Track')}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }

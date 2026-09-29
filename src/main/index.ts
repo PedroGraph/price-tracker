@@ -11,6 +11,7 @@ import { maybeSendDigest } from './digest'
 import { maybeSendSaleHeadsUp, saleOutlook } from './sales'
 import { maybeSendTrmAlert, refreshTrm } from './trm'
 import { compareProduct, getComparison, openMercadoLibreLogin } from './stores'
+import { getRadar, refreshRadar } from './radar'
 import { diagnosticsReport } from './diagnostics'
 import { inspectBackup, restoreBackup, writeBackup } from './backup'
 import { cachedRate, currentRate, refreshRate } from './exchange'
@@ -269,6 +270,11 @@ function registerIpc(): void {
     db.setPurchase(asin, { at: x.at, price: Math.round(x.price * 100) / 100, returnUntil: x.returnUntil })
   })
   handle('trm:get', () => refreshTrm())
+  handle('radar:get', () => getRadar())
+  handle('radar:refresh', async () => {
+    await refreshRadar(true)
+    return getRadar()
+  })
   handle('compare:get', (_e, asin: unknown) => (typeof asin === 'string' ? getComparison(asin) : null))
   handle('compare:run', (_e, asin: unknown) => {
     if (typeof asin !== 'string' || !/^[A-Z0-9]{10}$/.test(asin)) throw new Error('Invalid ASIN.')
@@ -374,7 +380,9 @@ app.whenReady().then(async () => {
   // Coupons on products related to the cart: every 30 minutes, skipped while a check runs or signed out.
   setInterval(() => {
     if (status.running || status.session !== 'logged_in') return
-    void refreshSuggestions().then((ran) => ran && events.emit('status', { ...status }))
+    void refreshSuggestions()
+      .then(() => refreshRadar())
+      .then((ran) => ran && events.emit('status', { ...status }))
   }, 30 * 60_000)
   syncBot()
   initUpdater(

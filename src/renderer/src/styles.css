@@ -441,3 +441,10 @@ code { font-family: var(--mono); font-size: 0.92em; }
 .compare-item img, .compare-item .noimg { width: 36px; height: 36px; object-fit: contain; background: #fff; border-radius: 6px; }
 .compare-item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .compare-row { display: grid; grid-template-columns: 150px 1fr auto auto; align-items: center; gap: 10px; font-size: 13px; padding: 4px 6px; }
+.deals-tab { color: var(--amber); }
+.radar-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.radar-head p { margin: 0; font-size: 14px; }
+.radar-cats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.radar-cats .chip { font-size: 13px; }
+.deal-off { background: var(--red); color: #fff; font-weight: 700; font-size: 12px; padding: 1px 8px; border-radius: 999px; }
+.strike { text-decoration: line-through; font-family: var(--mono); }

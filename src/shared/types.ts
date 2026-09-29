@@ -112,6 +112,15 @@ export interface SearchResult {
   reviews: string | null
   sponsored: boolean
   coupon: string | null
+  /** Struck-through list price, when Amazon shows a discount. */
+  listPrice: number | null
+}
+
+/** A discounted product in the categories of your products. */
+export interface RadarDeal extends SearchResult {
+  category: string
+  /** Percent off the list price. */
+  discount: number
 }
 
 /** A product with a coupon, related to one in the cart. */

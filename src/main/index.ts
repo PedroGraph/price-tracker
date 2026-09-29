@@ -9,6 +9,7 @@ import { dismissSuggestion, listSuggestions, refreshSuggestions } from './sugges
 import * as db from './db'
 import { maybeSendDigest } from './digest'
 import { maybeSendSaleHeadsUp, saleOutlook } from './sales'
+import { maybeSendTrmAlert, refreshTrm } from './trm'
 import { diagnosticsReport } from './diagnostics'
 import { inspectBackup, restoreBackup, writeBackup } from './backup'
 import { cachedRate, currentRate, refreshRate } from './exchange'
@@ -266,6 +267,7 @@ function registerIpc(): void {
     if (!date(x.at) || !date(x.returnUntil) || typeof x.price !== 'number' || !(x.price > 0)) throw new Error('Invalid purchase.')
     db.setPurchase(asin, { at: x.at, price: Math.round(x.price * 100) / 100, returnUntil: x.returnUntil })
   })
+  handle('trm:get', () => refreshTrm())
   handle('sales:outlook', () => saleOutlook())
   handle('stats:products', () => db.productStats())
   handle('stats:series', (_e, asins: unknown) =>
@@ -388,6 +390,7 @@ app.whenReady().then(async () => {
     void flushQueuedAlerts(currentRate()).catch(() => undefined)
     void maybeSendDigest(currentRate()).catch(() => undefined)
     void maybeSendSaleHeadsUp().catch(() => undefined)
+    void maybeSendTrmAlert().catch(() => undefined)
   }, 5 * 60_000)
 })
 

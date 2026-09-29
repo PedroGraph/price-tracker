@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatCop, formatUsd } from '@shared/pricing'
-import type { Settings, Status, UpdateState } from '@shared/types'
+import type { Settings, Status, Trm, UpdateState } from '@shared/types'
 import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
@@ -420,6 +420,8 @@ export function SettingsView({
         <p className="hint">{t("Amazon doesn't publish the rate it uses, so COP amounts are a close estimate.")}</p>
       </section>
 
+      <TrmCard draft={draft} save={save} />
+
       <section className="card row between">
         <div>
           <h3>{t('Your data')}</h3>
@@ -496,5 +498,42 @@ export function SettingsView({
       </section>
       <Diagnostics status={status} notify={notify} />
     </div>
+  )
+}
+
+/** Alert when Colombia's official dollar rate (TRM) goes down to a target. */
+function TrmCard({ draft, save }: { draft: Settings; save: (patch: Partial<Settings>, delay?: number) => void }) {
+  const { t } = useT()
+  const [trm, setTrm] = useState<Trm | null>(null)
+  useEffect(() => {
+    void window.api.getTrm().then(setTrm)
+  }, [])
+  return (
+    <section className="card">
+      <div className="row between">
+        <div>
+          <h3>{t('Dollar alert (TRM)')}</h3>
+          <p className="sub">{t("You pay in pesos: get an alert when the official TRM drops to your target, even if Amazon's price doesn't change.")}</p>
+        </div>
+        <Toggle on={draft.trmAlert} onChange={(v) => save({ trmAlert: v })} label={t('Dollar alert (TRM)')} />
+      </div>
+      <div className="row" style={{ marginTop: 14, flexWrap: 'wrap' }}>
+        <span className="muted">
+          {t('Official TRM')}{' '}
+          <strong className="mono">{trm ? trm.value.toLocaleString('es-CO', { maximumFractionDigits: 2 }) : '—'}</strong>
+          {trm && ` · ${trm.date}`}
+        </span>
+      </div>
+      <label className="field-label">{t('Alert me at or below (COP per USD)')}</label>
+      <input
+        className="short mono"
+        type="number"
+        min={0}
+        placeholder={trm ? String(Math.floor(trm.value / 50) * 50 - 100) : '3300'}
+        value={draft.trmTarget ?? ''}
+        onChange={(e) => save({ trmTarget: e.target.value ? Number(e.target.value) : null }, 800)}
+      />
+      <p className="hint">{t('Source: Superintendencia Financiera (datos.gov.co). Checked every hour.')}</p>
+    </section>
   )
 }

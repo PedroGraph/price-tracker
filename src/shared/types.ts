@@ -217,6 +217,15 @@ export interface ProductStats {
   droppedTotal: number
 }
 
+/** Colombia's official exchange rate for a day. */
+export interface Trm {
+  /** COP per USD. */
+  value: number
+  /** YYYY-MM-DD the rate applies to. */
+  date: string
+  fetchedAt: string
+}
+
 export interface ExchangeRate {
   /** COP per 1 USD. */
   rate: number
@@ -254,6 +263,9 @@ export interface Settings {
   wishlists: string[]
   /** Price up/down alerts compare the delivered total (price + shipping + import fees) instead of the price alone. */
   alertOnTotal: boolean
+  /** Alert when the official TRM (COP per USD) goes down to trmTarget or below. */
+  trmAlert: boolean
+  trmTarget: number | null
 }
 
 export interface UpdateState {

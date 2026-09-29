@@ -84,8 +84,11 @@ async function sendEmail(alerts: Alert[], rate: number | null): Promise<void> {
   await sendRaw({ key, from: emailFrom, to: emailTo, subject, html: alertEmail(cards, rate, language) })
 }
 
-/** Emails about the app itself (session lost, scraper broken). Silently skipped without email setup. */
-async function sendSystemEmail(subject: string, html: string): Promise<void> {
+/**
+ * Emails about the app itself (session lost, scraper broken) and summaries. `html` is the
+ * body of a plain card, or a whole email when `full`. Silently skipped without email setup.
+ */
+async function sendSystemEmail(subject: string, html: string, full = false): Promise<void> {
   const { emailTo, emailFrom } = getSettings()
   const key = getResendKey()
   if (!key || !emailTo) return
@@ -94,7 +97,7 @@ async function sendSystemEmail(subject: string, html: string): Promise<void> {
     from: emailFrom,
     to: emailTo,
     subject,
-    html: messageEmail(subject, html, getSettings().language)
+    html: full ? html : messageEmail(subject, html, getSettings().language)
   })
 }
 
@@ -104,8 +107,8 @@ export async function sendSystemMessage(subject: string, html: string): Promise<
 }
 
 /** An email and a Telegram message with their own formatting (summaries, warnings). */
-export async function sendReport(subject: string, emailHtml: string, telegramHtml: string): Promise<void> {
-  const results = await Promise.allSettled([sendSystemEmail(subject, emailHtml), sendTelegram(telegramHtml)])
+export async function sendReport(subject: string, emailHtml: string, telegramHtml: string, fullEmail = false): Promise<void> {
+  const results = await Promise.allSettled([sendSystemEmail(subject, emailHtml, fullEmail), sendTelegram(telegramHtml)])
   const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
   if (failed.length) throw failed[0].reason
 }

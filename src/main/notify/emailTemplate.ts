@@ -186,3 +186,93 @@ export function messageEmail(title: string, bodyHtml: string, lang: Lang): strin
     lang
   )
 }
+
+export interface DigestRow {
+  title: string
+  image: string | null
+  url: string
+  price: number | null
+  /** Price at the start of the period; null for products added during it. */
+  before: number | null
+  lowest: number | null
+  available: boolean | null
+  coupon: string | null
+}
+
+/**
+ * The daily/weekly summary: a line of totals, then one row per product with its picture,
+ * price (USD and COP), the move over the period as a coloured pill, and its lowest price.
+ */
+export function digestEmail(d: { title: string; intro: string; alerts: number; rows: DigestRow[] }, rate: number | null, lang: Lang): string {
+  const t = (s: string, v?: Record<string, string | number>): string => translate(lang, s, v)
+  const cop = (usd: number): string => (rate ? `${formatCop(usd * rate).replace(/\s/g, '')} COP` : '')
+  const change = (r: DigestRow): number | null => (r.before !== null && r.price !== null ? Math.round((r.price - r.before) * 100) / 100 : null)
+  const down = d.rows.filter((r) => (change(r) ?? 0) < 0).length
+  const up = d.rows.filter((r) => (change(r) ?? 0) > 0).length
+  // Biggest moves first, then the rest.
+  const rows = [...d.rows].sort((a, b) => Math.abs(change(b) ?? 0) - Math.abs(change(a) ?? 0))
+
+  const tile = (label: string, value: number, color: string): string =>
+    `<td width="25%" align="center" style="padding:14px 6px;background:${C.panel};border:1px solid ${C.line};border-radius:12px">
+       <div style="font:700 24px ${MONO};color:${color}">${value}</div>
+       <div style="font:12px ${SANS};color:${C.muted};margin-top:4px">${esc(label)}</div>
+     </td>`
+  const gap = '<td width="8" style="font-size:0">&nbsp;</td>'
+
+  const pill = (r: DigestRow): string => {
+    const c = change(r)
+    const style = (fg: string, bg: string): string =>
+      `display:inline-block;background:${bg};color:${fg};font:600 12px ${SANS};padding:3px 10px;border-radius:999px;white-space:nowrap`
+    if (r.available === false) return `<span style="${style(C.red, C.redSoft)}">● ${esc(t('Out of stock'))}</span>`
+    if (c === null) return `<span style="${style(C.muted, C.panel)}">${esc(t('new'))}</span>`
+    if (c === 0) return `<span style="${style(C.muted, C.panel)}">— ${esc(t('no change'))}</span>`
+    const pct = Math.abs((c / r.before!) * 100).toFixed(1)
+    return c < 0
+      ? `<span style="${style(C.teal, C.tealSoft)}">▼ ${formatUsd(-c)} (−${pct}%)</span>`
+      : `<span style="${style(C.amber, C.amberSoft)}">▲ ${formatUsd(c)} (+${pct}%)</span>`
+  }
+
+  const row = (r: DigestRow, last: boolean): string => {
+    const image = r.image
+      ? `<img src="${esc(r.image)}" width="56" height="56" alt="" style="display:block;width:56px;height:56px;object-fit:contain;background:#fff;border:1px solid ${C.line};border-radius:12px">`
+      : `<div style="width:56px;height:56px;background:${C.panel};border:1px solid ${C.line};border-radius:12px"></div>`
+    const atLowest = r.price !== null && r.lowest !== null && r.price <= r.lowest && r.before !== null && r.price < r.before
+    const extras = [
+      r.lowest !== null ? t('lowest {price}', { price: formatUsd(r.lowest) }) : null,
+      r.coupon ? `% ${r.coupon}` : null
+    ].filter(Boolean)
+    return `<tr><td style="padding:16px 0;${last ? '' : `border-bottom:1px solid ${C.line}`}">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td width="56" valign="top">${image}</td>
+        <td valign="top" style="padding-left:14px">
+          <a href="${esc(r.url)}" style="font:600 14px/1.4 ${SANS};color:${C.text};text-decoration:none">${esc(r.title.length > 90 ? `${r.title.slice(0, 88)}…` : r.title)}</a>
+          <div style="margin-top:8px">${pill(r)}${atLowest ? ` <span style="display:inline-block;background:${C.tealSoft};color:${C.teal};font:600 12px ${SANS};padding:3px 10px;border-radius:999px">${esc(t('Lowest ever'))}</span>` : ''}</div>
+          ${extras.length ? `<div style="font:12px ${SANS};color:${C.muted};margin-top:6px">${esc(extras.join(' · '))}</div>` : ''}
+        </td>
+        <td valign="top" align="right" style="padding-left:12px;white-space:nowrap">
+          <div style="font:700 18px ${MONO};color:${r.price === null ? C.faint : C.text}">${r.price === null ? '—' : formatUsd(r.price)}</div>
+          ${r.price !== null && rate ? `<div style="font:11px ${MONO};color:${C.faint};margin-top:4px">${cop(r.price)}</div>` : ''}
+        </td>
+      </tr></table>
+    </td></tr>`
+  }
+
+  return emailShell(
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.card};border:1px solid ${C.line};border-radius:20px">
+      <tr><td style="padding:32px 36px">
+        <h1 style="margin:0 0 6px;font:700 22px/1.3 ${SANS};color:${C.text}">${esc(d.title)}</h1>
+        <p style="margin:0 0 22px;font:14px/1.5 ${SANS};color:${C.muted}">${esc(d.intro)}</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate"><tr>
+          ${tile(t('Products'), d.rows.length, C.text)}${gap}${tile(t('Dropped'), down, C.teal)}${gap}${tile(t('Went up'), up, C.amber)}${gap}${tile(t('Alerts'), d.alerts, C.text)}
+        </tr></table>
+        <div style="height:10px"></div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          ${rows.map((r, i) => row(r, i === rows.length - 1)).join('')}
+        </table>
+        <div style="height:18px"></div>
+        <a href="${CART_URL}" style="display:inline-block;background:${C.button};color:#ffffff;font:600 14px ${SANS};text-decoration:none;padding:13px 22px;border-radius:10px">${esc(t('View in your Amazon cart'))} →</a>
+      </td></tr>
+    </table>`,
+    lang
+  )
+}

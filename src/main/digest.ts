@@ -2,6 +2,7 @@ import { formatCop, formatUsd } from '@shared/pricing'
 import { digestDue } from '@shared/schedule'
 import * as db from './db'
 import { sendReport } from './notify'
+import { digestEmail } from './notify/emailTemplate'
 import { getSettings, tr } from './settings'
 
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
@@ -23,7 +24,7 @@ export async function maybeSendDigest(rate: number | null, now = new Date()): Pr
     const change =
       diff === null ? tr('new') : diff === 0 ? tr('no change') : `${diff < 0 ? '▼' : '▲'} ${formatUsd(Math.abs(diff))} (${((diff / then!) * 100).toFixed(1)}%)`
     const status = p.available === false ? tr('Out of stock') : p.coupon ? p.coupon : ''
-    return { p, change, status }
+    return { p, then, change, status }
   })
   const alerts = db.countAlertsSince(since)
   const title = tr(digest === 'weekly' ? 'Weekly summary: {products} products, {alerts} alerts' : 'Daily summary: {products} products, {alerts} alerts', {
@@ -31,17 +32,25 @@ export async function maybeSendDigest(rate: number | null, now = new Date()): Pr
     alerts
   })
 
-  const html = `<p>${esc(intro)}</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px">
-      ${rows
-        .map(
-          ({ p, change, status }) => `<tr><td style="padding:10px 0;border-bottom:1px solid #eee">
-            <a href="${esc(p.url)}">${esc(p.title.slice(0, 80))}</a><br>
-            <b>${esc(money(p.lastPrice))}</b> · ${esc(change)} · ${esc(tr('lowest {price}', { price: money(p.lowestPrice) }))}${status ? ` · ${esc(status)}` : ''}
-          </td></tr>`
-        )
-        .join('')}
-    </table>`
+  const html = digestEmail(
+    {
+      title,
+      intro,
+      alerts,
+      rows: rows.map(({ p, then }) => ({
+        title: p.title,
+        image: p.image,
+        url: p.url,
+        price: p.lastPrice,
+        before: then,
+        lowest: p.lowestPrice,
+        available: p.available,
+        coupon: p.coupon
+      }))
+    },
+    rate,
+    getSettings().language
+  )
   const telegram = [
     `🗓 <b>${esc(title)}</b>`,
     ...rows.map(
@@ -50,6 +59,6 @@ export async function maybeSendDigest(rate: number | null, now = new Date()): Pr
     )
   ].join('\n')
 
-  await sendReport(title, html, telegram)
+  await sendReport(title, html, telegram, true)
   db.setSetting('digestSentAt', now.toISOString())
 }

@@ -59,6 +59,11 @@ function showWindow(): void {
   win.focus()
 }
 
+/** Window buttons (minimize, maximize, close) in the app's colors. */
+function overlayColors(dark: boolean): Electron.TitleBarOverlayOptions {
+  return dark ? { color: '#121412', symbolColor: '#ecebe6', height: 40 } : { color: '#f5f4f0', symbolColor: '#1c1c1a', height: 40 }
+}
+
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1200,
@@ -70,6 +75,9 @@ function createWindow(): void {
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#121412' : '#f5f4f0',
     title: 'Price Tracker',
     icon: resourceImage('icon.png') ?? undefined,
+    // No Windows title bar: the app's own header is the bar, with the window buttons drawn over it.
+    titleBarStyle: 'hidden',
+    titleBarOverlay: overlayColors(nativeTheme.shouldUseDarkColors),
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -246,6 +254,9 @@ function registerIpc(): void {
   })
   handle('notifications:list', () => ({ alerts: db.listRecentAlerts(), seenAt: db.getSetting<string | null>('alertsSeenAt', null) }))
   handle('notifications:seen', () => db.setSetting('alertsSeenAt', new Date().toISOString()))
+  handle('window:theme', (_e, dark: unknown) => {
+    if (process.platform === 'win32') win?.setTitleBarOverlay(overlayColors(dark === true))
+  })
   handle('sales:outlook', () => saleOutlook())
   handle('stats:products', () => db.productStats())
   handle('stats:series', (_e, asins: unknown) =>

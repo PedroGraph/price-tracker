@@ -31,6 +31,8 @@ const api = {
   searchAmazon: (params: SearchParams): Promise<SearchPage> => ipcRenderer.invoke('amazon:search', params),
   openOnAmazon: (asin: string): Promise<void> => ipcRenderer.invoke('amazon:product', asin),
   listSuggestions: (): Promise<Suggestion[]> => ipcRenderer.invoke('suggestions:list'),
+  /** Matches the window buttons to the app's theme. */
+  setWindowTheme: (dark: boolean): Promise<void> => ipcRenderer.invoke('window:theme', dark),
   saleOutlook: (): Promise<SaleOutlook | null> => ipcRenderer.invoke('sales:outlook'),
   productStats: (): Promise<ProductStats[]> => ipcRenderer.invoke('stats:products'),
   priceSeries: (asins: string[]): Promise<{ asin: string; points: { at: string; price: number }[] }[]> =>

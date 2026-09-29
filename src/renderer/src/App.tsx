@@ -83,6 +83,7 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     store('theme', theme)
+    void window.api.setWindowTheme(theme === 'dark')
   }, [theme])
 
   const setCurrency = (c: DisplayCurrency): void => {

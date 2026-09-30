@@ -4,7 +4,7 @@ import type { Notify } from '../App'
 import type { DashboardStats, Product, ProductSource, RadarDeal, SaleOutlook, SearchPage, SearchParams, Status } from '@shared/types'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
-import { landedTotal } from '@shared/pricing'
+import { cleanDeal, landedTotal } from '@shared/pricing'
 import { BuySignal, ChangePill, DeliveredTotal, Sparkline, Thumb, timeAgo } from '../ui'
 
 type Filter = 'all' | 'down' | 'up' | 'out'
@@ -361,16 +361,17 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
             p.lastPrice <= p.lowestPrice && p.lastPrice < p.firstPrice && (
             <span className="badge good">{t('Lowest ever')}</span>
           )}
-          {p.deal && <span className="badge deal">{p.deal}</span>}
+          {cleanDeal(p.deal) && <span className="badge deal">{cleanDeal(p.deal)}</span>}
           {p.coupon && <span className="badge good">{t('Coupon')}</span>}
           {p.sellerCount > 1 && <span className="badge">{t('{n} sellers', { n: p.sellerCount })}</span>}
-          {p.source === 'manual' && <span className="badge">{t('Not in cart')}</span>}
-          {p.source === 'saved' && <span className="badge">{t('Saved for later')}</span>}
-          {p.source === 'wishlist' && <span className="badge">{t('Wishlist')}</span>}
         </div>
       </div>
       <div className="priceline">
-        <span className="big">{fmt(p.lastPrice)}</span>
+        {p.lastPrice === null && p.available === false ? (
+          <span className="no-price">{t('No price while out of stock')}</span>
+        ) : (
+          <span className="big">{fmt(p.lastPrice)}</span>
+        )}
         {moved !== null && moved !== 0 && <span className="was">{fmt(p.firstPrice)}</span>}
         <ChangePill from={p.firstPrice} to={p.lastPrice} />
         <BuySignal product={p} />

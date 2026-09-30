@@ -46,8 +46,13 @@ export async function refreshRadar(force = false): Promise<boolean> {
       const url = searchUrl({ query: '', rh: `n:${node},${DISCOUNT_FILTER}`, sort: 'exact-aware-popularity-rank' })
       if (!url) continue
       await scraper.pause()
-      const page = await scraper.search(url, currentRate())
-      for (const r of page.results) {
+      // One category failing (the page changed, a timeout) doesn't stop the others.
+      const page = await scraper.search(url, currentRate()).catch((err: unknown) => {
+        if (err instanceof SessionError) throw err
+        console.error(`Radar (${name}):`, err)
+        return null
+      })
+      for (const r of page?.results ?? []) {
         if (r.sponsored || r.price === null || r.listPrice === null || r.listPrice <= r.price) continue
         if (deals.some((d) => d.asin === r.asin)) continue
         deals.push({ ...r, category: name, discount: Math.round((1 - r.price / r.listPrice) * 100) })

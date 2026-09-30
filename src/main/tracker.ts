@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { app } from 'electron'
-import { evaluateReading, extraEvents, landedTotal, promoEvents } from '@shared/pricing'
+import { cleanDeal, evaluateReading, extraEvents, landedTotal, promoEvents } from '@shared/pricing'
 import type { Status } from '@shared/types'
 import * as db from './db'
 import { cachedRate, currentRate, refreshRate } from './exchange'
@@ -131,7 +131,7 @@ async function track(): Promise<RunOutcome> {
       const before = db.priceStats(product.asin)
       // On the first check there's nothing to compare with, so no "coupon appeared" alert.
       const promos = product.lastCheckedAt ? promoEvents(product, { coupon, deal }) : []
-      db.setPromotions(product.asin, coupon, deal, importFees)
+      db.setPromotions(product.asin, coupon, cleanDeal(deal), importFees)
       db.addReading({ asin: product.asin, ...page, sellerId: null, condition: null, source: 'buybox' })
 
       // With "other sellers" on, the tracked price is the cheapest offer (shipping excluded).

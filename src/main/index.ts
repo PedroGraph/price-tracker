@@ -18,6 +18,7 @@ import { cachedRate, currentRate, refreshRate } from './exchange'
 import { flushQueuedAlerts, onNotificationClick, sendTestEmail } from './notify'
 import { APP_URL, registerAppScheme, serveRenderer } from './appProtocol'
 import { mark } from './startup'
+import { showSplash } from './splash'
 import { amazonSession, clearAmazonSession, flushAmazonSession, openAmazonWindow, Scraper } from './scraper/amazon'
 import { denyPermissions, installGlobalGuards, isTrustedSender, openExternal, reencryptCookies } from './security'
 import { getSettings, saveSettings, setResendKey, setSecret } from './settings'
@@ -95,8 +96,11 @@ function createWindow(): void {
   if (relaunchHidden) db.setSetting('relaunchHidden', false)
   win.once('ready-to-show', () => mark('windowReady'))
   win.webContents.once('did-finish-load', () => mark('pageLoaded'))
-  // Show at once; the page fills in a moment later.
-  if (!process.argv.includes('--hidden') && !relaunchHidden) win.show()
+  // Opened by the user: a small loading window until the page is ready, then the app.
+  if (!process.argv.includes('--hidden') && !relaunchHidden) {
+    const splash = showSplash()
+    win.once('ready-to-show', () => splash.done(() => win?.show()))
+  }
 
   // Closing the window keeps the tracker running in the tray.
   win.on('close', (e) => {

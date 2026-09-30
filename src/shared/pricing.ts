@@ -197,3 +197,18 @@ export function conditionGroup(condition: string | null): 'new' | 'renewed' | 'u
   if (/used|usad|collectible|coleccion/.test(c)) return 'used'
   return 'new'
 }
+
+/**
+ * The deal badge's name only. Amazon sometimes leaves its countdown template in the text
+ * ("Lightning Deal NO_OF_HOURS hours NO_OF_MINUTES minutes Lightning Deal…") or repeats it.
+ */
+export function cleanDeal(text: string | null): string | null {
+  if (!text) return null
+  let t = text.replace(/\s+/g, ' ').trim()
+  // Stop at the countdown: a placeholder like NO_OF_HOURS, or "12 hours" / "3 horas".
+  t = t.split(/\s(?=[A-Z0-9]+_[A-Z0-9_]+)|\s(?=\d+\s*(?:h|hours?|horas?|min|minutes?|minutos?)(?:\s|$))/i)[0].trim()
+  // "Deal Deal" or a phrase said twice.
+  const half = t.length / 2
+  if (Number.isInteger(half) && t.slice(0, half).trim() === t.slice(half).trim()) t = t.slice(0, half).trim()
+  return t.slice(0, 40) || null
+}

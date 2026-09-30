@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { conditionGroup, landedTotal, offerUrl, priceWithCoupon, sellerUrl, thresholdInUsd } from '@shared/pricing'
+import { cleanDeal, conditionGroup, landedTotal, offerUrl, priceWithCoupon, sellerUrl, thresholdInUsd } from '@shared/pricing'
 import { priceInsights } from '@shared/insights'
 import type { Comparison, PriceReading, Product, ReviewsInfo, StoreResult, Threshold, TrackerEvent } from '@shared/types'
 import type { Notify } from '../App'
@@ -195,7 +195,7 @@ export function ProductDetail({
           </div>
           {(product.coupon || product.deal) && (
             <div className="promos">
-              {product.deal && <span className="badge deal">{product.deal}</span>}
+              {cleanDeal(product.deal) && <span className="badge deal">{cleanDeal(product.deal)}</span>}
               {product.coupon && (
                 <span className="badge good">
                   {product.coupon}

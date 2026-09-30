@@ -98,6 +98,7 @@ const ES: Record<string, string> = {
   'Coupons for you': 'Cupones para ti',
   Notifications: 'Notificaciones',
   Tags: 'Etiquetas',
+  'No price while out of stock': 'Sin precio mientras no haya stock',
   'Deals radar': 'Radar de ofertas',
   'Discounts on Amazon in the categories of your products. Updated every 6 hours.': 'Descuentos de Amazon en las categorías de tus productos. Se actualiza cada 6 horas.',
   'Last: {when}.': 'Última: {when}.',

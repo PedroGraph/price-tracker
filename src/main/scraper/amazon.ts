@@ -79,8 +79,29 @@ export class Scraper {
     keepOnAmazon(this.win.webContents)
   }
 
+  /**
+   * Loads a page. Amazon sometimes swaps the URL while loading (a category search turns
+   * into /s?keywords=…), which aborts the first navigation: then wait for the new one.
+   */
+  private async load(url: string): Promise<void> {
+    try {
+      await this.win.loadURL(url)
+    } catch (err) {
+      if ((err as { code?: string }).code !== 'ERR_ABORTED') throw err
+      const wc = this.win.webContents
+      if (!wc.isLoading()) return
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, 20_000)
+        wc.once('did-stop-loading', () => {
+          clearTimeout(timer)
+          resolve()
+        })
+      })
+    }
+  }
+
   private async run<T extends PageFlags>(url: string, fn: () => T, checkLogin = true): Promise<T> {
-    await this.win.loadURL(url)
+    await this.load(url)
     await sleep(1500) // let late price widgets render
     const result = (await this.win.webContents.executeJavaScript(`(${fn.toString()})()`)) as T
     if (result.captcha) throw new SessionError('captcha')

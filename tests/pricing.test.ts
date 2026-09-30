@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { toTelegramHtml } from '../src/main/notify/format'
-import { buySignal, conditionGroup, evaluateReading, extraEvents, landedTotal, parseAsin, parsePrice, priceWithCoupon, promoEvents, thresholdInUsd } from '../src/shared/pricing'
+import { buySignal, cleanDeal, conditionGroup, evaluateReading, extraEvents, landedTotal, parseAsin, parsePrice, priceWithCoupon, promoEvents, thresholdInUsd } from '../src/shared/pricing'
 
 const pct5 = { unit: 'percent' as const, value: 5 }
 const base = { basePrice: 100, wasAvailable: true, available: true, threshold: pct5, copPerUsd: 4000 }
@@ -156,5 +156,14 @@ describe('conditionGroup', () => {
     expect(conditionGroup('Renovado')).toBe('renewed')
     expect(conditionGroup('New')).toBe('new')
     expect(conditionGroup(null)).toBe('new')
+  })
+})
+
+describe('cleanDeal', () => {
+  it('keeps only the deal name', () => {
+    expect(cleanDeal('Oferta Relámpago NO_OF_HOURS horas NO_OF_MINUTES minutos Oferta Relámpago NO_OF_')).toBe('Oferta Relámpago')
+    expect(cleanDeal('Lightning Deal 5 hours 12 minutes')).toBe('Lightning Deal')
+    expect(cleanDeal('Limited time deal')).toBe('Limited time deal')
+    expect(cleanDeal(null)).toBeNull()
   })
 })

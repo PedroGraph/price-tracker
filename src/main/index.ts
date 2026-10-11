@@ -5,6 +5,10 @@ import { join } from 'node:path'
 import { toCsv } from '@shared/csv'
 import type { SearchParams, Settings, Threshold } from '@shared/types'
 import { searchUrl } from '@shared/urls'
+import { cleanShipment } from '@shared/shipping'
+import { newsSince } from '@shared/whatsNew'
+import { refreshShipments } from './shipments'
+import { connectStore, disconnectStore, linkedStores, syncStores } from './accounts'
 import { dismissSuggestion, listSuggestions, refreshSuggestions } from './suggestions'
 import * as db from './db'
 import { maybeSendDigest } from './digest'
@@ -21,7 +25,7 @@ import { mark } from './startup'
 import { showSplash } from './splash'
 import { amazonSession, clearAmazonSession, flushAmazonSession, openAmazonWindow, Scraper } from './scraper/amazon'
 import { denyPermissions, installGlobalGuards, isTrustedSender, openExternal, reencryptCookies } from './security'
-import { getSettings, saveSettings, setResendKey, setSecret } from './settings'
+import { getSettings, saveSettings, setResendKey, setSecret, tr } from './settings'
 import { botName, sendTelegramTest } from './notify/telegram'
 import { detectChatWhilePaused, syncBot } from './notify/telegramBot'
 import { resolveAsin } from './resolveAsin'
@@ -150,11 +154,11 @@ function setupTray(icon: Electron.NativeImage): void {
   tray.setToolTip('Price Tracker')
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Open', click: showWindow },
-      { label: 'Check now', click: () => void runCheck() },
+      { label: tr('Open'), click: showWindow },
+      { label: tr('Check now'), click: () => void runCheck() },
       { type: 'separator' },
       {
-        label: 'Quit',
+        label: tr('Quit'),
         click: () => {
           quitting = true
           app.quit()
@@ -259,7 +263,11 @@ function registerIpc(): void {
     await openAmazonWindow(win ?? undefined, asin)
     void runCheck()
   })
-  handle('notifications:list', () => ({ alerts: db.listRecentAlerts(), seenAt: db.getSetting<string | null>('alertsSeenAt', null) }))
+  handle('notifications:list', () => ({
+    alerts: db.listRecentAlerts(),
+    shipments: db.listShipmentNotices(),
+    seenAt: db.getSetting<string | null>('alertsSeenAt', null)
+  }))
   handle('notifications:seen', () => db.setSetting('alertsSeenAt', new Date().toISOString()))
   handle('window:theme', (_e, dark: unknown) => {
     if (process.platform === 'win32') win?.setTitleBarOverlay(overlayColors(dark === true))
@@ -273,6 +281,46 @@ function registerIpc(): void {
     if (!date(x.at) || !date(x.returnUntil) || typeof x.price !== 'number' || !(x.price > 0)) throw new Error('Invalid purchase.')
     db.setPurchase(asin, { at: x.at, price: Math.round(x.price * 100) / 100, returnUntil: x.returnUntil })
   })
+  handle('shipments:list', () => db.listShipments())
+  handle('shipments:save', async (_e, id: unknown, input: unknown) => {
+    const shipment = cleanShipment(input)
+    if (!shipment || !(id === null || Number.isInteger(id))) throw new Error('Invalid shipment.')
+    db.saveShipment(id as number | null, shipment)
+    // A new or changed tracking number is read right away.
+    await refreshShipments()
+    return db.listShipments()
+  })
+  handle('shipments:refresh', async () => {
+    await Promise.all([refreshShipments(true), syncStores(true)])
+    return db.listShipments()
+  })
+  handle('stores:list', () => linkedStores())
+  // Resolves once signing in is done (a window, for most stores) and the orders were read.
+  handle('stores:connect', async (_e, id: unknown) => {
+    await connectStore(id, win ?? undefined)
+    return linkedStores()
+  })
+  handle('stores:disconnect', async (_e, id: unknown) => {
+    await disconnectStore(id)
+    return linkedStores()
+  })
+  handle('shipments:remove', (_e, id: unknown) => {
+    if (Number.isInteger(id)) db.removeShipment(id as number)
+    return db.listShipments()
+  })
+  // Copied from the main process: the page itself has no clipboard permission.
+  handle('clipboard:copy', (_e, text: unknown) => {
+    if (typeof text === 'string' && text.length <= 200) clipboard.writeText(text)
+  })
+  // What's new since the version this PC last ran. A PC that already has data but no record
+  // of a version was updated from one that didn't keep it; a brand-new install has no news.
+  handle('news:pending', () => {
+    const used = db.getSetting<unknown>('settings', null) !== null || db.listProducts().length > 0
+    const lastSeen = db.getSetting<string | null>('lastSeenVersion', null) ?? (used ? '0' : null)
+    if (lastSeen === null) db.setSetting('lastSeenVersion', app.getVersion())
+    return lastSeen === null ? [] : newsSince(lastSeen, app.getVersion())
+  })
+  handle('news:seen', () => db.setSetting('lastSeenVersion', app.getVersion()))
   handle('trm:get', () => refreshTrm())
   handle('radar:get', () => getRadar())
   handle('radar:refresh', async () => {
@@ -411,7 +459,14 @@ app.whenReady().then(async () => {
     void maybeSendDigest(currentRate()).catch(() => undefined)
     void maybeSendSaleHeadsUp().catch(() => undefined)
     void maybeSendTrmAlert().catch(() => undefined)
+    void refreshShipments()
+      .then((changed) => changed && events.emit('status', { ...status }))
+      .catch(() => undefined)
+    void syncStores()
+      .then((ran) => ran && events.emit('status', { ...status }))
+      .catch(() => undefined)
   }, 5 * 60_000)
+  void refreshShipments().catch(() => undefined)
 })
 
 app.on('before-quit', () => {

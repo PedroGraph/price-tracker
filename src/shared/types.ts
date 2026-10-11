@@ -83,6 +83,70 @@ export interface Purchase {
   returnUntil: string
 }
 
+export type ShipmentStatus = 'ordered' | 'transit' | 'customs' | 'delivering' | 'delivered'
+
+/** Something you bought and are waiting for, from any store. */
+export interface Shipment {
+  id: number
+  /** Added by hand, or read from a store account you connected. */
+  source: 'manual' | LinkedStore['id']
+  /** The tracked product it belongs to, if any. */
+  asin: string | null
+  title: string
+  store: string
+  /** The forwarder (e.g. Encargomio) it comes through; null when the store ships it to you. */
+  forwarder: string | null
+  /** A carrier id from the app's list, or the name typed for another one. */
+  carrier: string | null
+  tracking: string | null
+  status: ShipmentStatus
+  createdAt: string
+  updatedAt: string
+  deliveredAt: string | null
+  /** What the carrier says, for carriers the app can read by itself; null until the first read. */
+  live: ShipmentTracking | null
+}
+
+/** A shipment as the carrier reports it. */
+export interface ShipmentTracking {
+  /** The carrier's own words, e.g. "EN ALISTAMIENTO DEL CLIENTE". Empty when it couldn't be read. */
+  state: string
+  from: string | null
+  to: string | null
+  /** Estimated delivery, as the carrier writes it. */
+  eta: string | null
+  /** Newest first. `at` is the carrier's date text. */
+  events: { at: string; text: string; place: string | null }[]
+  checkedAt: string
+  /** Who said it, when it isn't the carrier: the store whose account it was read from. */
+  by?: string
+  /** The carrier asks for a human check or more details: it has to be opened on its page. */
+  blocked?: boolean
+}
+
+/** A change in a shipment (a new state or movement), for the bell's list. */
+export interface ShipmentNotice {
+  id: number
+  shipmentId: number
+  title: string
+  store: string
+  state: string
+  /** The latest movement, when there is one. */
+  detail: string | null
+  createdAt: string
+}
+
+/** A store account connected to read its orders. */
+export interface LinkedStore {
+  id: 'temu' | 'amazon' | 'encargomio'
+  name: string
+  /** 'login': signed out; 'check': the store wants a human check; 'error': its orders couldn't be read. */
+  state: 'off' | 'ok' | 'login' | 'check' | 'error'
+  syncedAt: string | null
+}
+
+export type ShipmentInput = Pick<Shipment, 'asin' | 'title' | 'store' | 'forwarder' | 'carrier' | 'tracking' | 'status'>
+
 export interface ReviewsInfo {
   /** Percent of reviews with 5, 4, 3, 2 and 1 stars. */
   histogram: number[]
@@ -279,8 +343,10 @@ export interface Settings {
   /** Summary of all products by email/Telegram; weekly ones go out on Mondays. */
   digest: 'off' | 'daily' | 'weekly'
   digestHour: number
-  /** UI and alert language. */
+  /** UI and alert language in use: the chosen one, or the PC's when the choice is 'auto'. */
   language: 'en' | 'es'
+  /** What was picked in Settings; 'auto' follows the Windows display language. */
+  languageChoice: 'auto' | 'en' | 'es'
   /** Alerts are held (like quiet hours) until this time; set by /pausar. */
   pausedUntil: string | null
   /** Also track the cart's "Saved for later" items. */

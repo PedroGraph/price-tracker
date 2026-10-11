@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import { app } from 'electron'
 import { join } from 'node:path'
-import type { ProductSource, RunRecord, DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent, AlertItem, ProductStats, Purchase, ReviewsInfo } from '@shared/types'
+import type { ProductSource, RunRecord, DashboardStats, EventType, PriceReading, Product, Threshold, TrackerEvent, AlertItem, ProductStats, Purchase, ReviewsInfo, Shipment, ShipmentInput, ShipmentNotice, ShipmentTracking } from '@shared/types'
 import { volatility } from '@shared/insights'
 
 let db: DatabaseSync
@@ -80,7 +80,30 @@ const MIGRATIONS = [
    ALTER TABLE products ADD COLUMN purchased_price REAL; ALTER TABLE products ADD COLUMN return_until TEXT;
    ALTER TABLE products ADD COLUMN refund_alerted_price REAL;
    CREATE TABLE rank_history (asin TEXT NOT NULL, rank INTEGER NOT NULL, checked_at TEXT NOT NULL);
-   CREATE INDEX rank_history_asin ON rank_history (asin, checked_at);`
+   CREATE INDEX rank_history_asin ON rank_history (asin, checked_at);`,
+  `CREATE TABLE shipments (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     asin TEXT,
+     title TEXT NOT NULL,
+     store TEXT NOT NULL,
+     forwarder TEXT,
+     carrier TEXT,
+     tracking TEXT,
+     status TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL,
+     delivered_at TEXT
+   );`,
+  `ALTER TABLE shipments ADD COLUMN live TEXT;`,
+  `ALTER TABLE shipments ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'; ALTER TABLE shipments ADD COLUMN external_id TEXT;
+   ALTER TABLE shipments ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;`,
+  `CREATE TABLE shipment_events (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     shipment_id INTEGER NOT NULL,
+     state TEXT NOT NULL,
+     detail TEXT,
+     created_at TEXT NOT NULL
+   );`
 ]
 
 export function openDb(file = join(app.getPath('userData'), 'tracker.db')): void {
@@ -493,9 +516,9 @@ export function listRecentAlerts(limit = 60): AlertItem[] {
 // ---- backups
 
 /** Tables in a backup, in insert order (products first: the others point to it). */
-const BACKUP_TABLES = ['products', 'price_history', 'events', 'settings'] as const
+const BACKUP_TABLES = ['products', 'price_history', 'events', 'shipments', 'shipment_events', 'settings'] as const
 /** Settings that are secrets, or only make sense on this machine. */
-const LOCAL_SETTINGS = ['resendKey', 'telegramToken', 'cookiesReencrypted', 'health', 'queuedAlerts']
+const LOCAL_SETTINGS = ['resendKey', 'telegramToken', 'cookiesReencrypted', 'health', 'queuedAlerts', 'temu', 'amazonOrders', 'encargomio', 'lastSeenVersion']
 
 export function schemaVersion(): number {
   return (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
@@ -684,4 +707,143 @@ export function getRefundAlertedPrice(asin: string): number | null {
 
 export function setRefundAlertedPrice(asin: string, price: number): void {
   db.prepare('UPDATE products SET refund_alerted_price = ? WHERE asin = ?').run(price, asin)
+}
+
+// ---- shipments
+
+/** What happened to the shipments in the last 30 days, newest first, for the bell. */
+export function listShipmentNotices(limit = 60): ShipmentNotice[] {
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString()
+  return (
+    db
+      .prepare(
+        `SELECT e.id, e.shipment_id, e.state, e.detail, e.created_at, s.title, s.store FROM shipment_events e
+         JOIN shipments s ON s.id = e.shipment_id WHERE s.hidden = 0 AND e.created_at >= ? ORDER BY e.created_at DESC, e.id DESC LIMIT ?`
+      )
+      .all(since, limit) as Record<string, unknown>[]
+  ).map((r) => ({
+    id: r.id as number,
+    shipmentId: r.shipment_id as number,
+    title: r.title as string,
+    store: r.store as string,
+    state: r.state as string,
+    detail: (r.detail as string) ?? null,
+    createdAt: r.created_at as string
+  }))
+}
+
+/** The shipments, the one that changed last first. */
+export function listShipments(): Shipment[] {
+  return (
+    db.prepare('SELECT * FROM shipments WHERE hidden = 0 ORDER BY updated_at DESC, id DESC').all() as Record<string, unknown>[]
+  ).map(toShipment)
+}
+
+function toShipment(r: Record<string, unknown>): Shipment {
+  return {
+    id: r.id as number,
+    source: r.source as Shipment['source'],
+    asin: (r.asin as string) ?? null,
+    title: r.title as string,
+    store: r.store as string,
+    forwarder: (r.forwarder as string) ?? null,
+    carrier: (r.carrier as string) ?? null,
+    tracking: (r.tracking as string) ?? null,
+    status: r.status as Shipment['status'],
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+    deliveredAt: (r.delivered_at as string) ?? null,
+    live: parseLive(r.live)
+  }
+}
+
+/** A shipment read from a store account, by the store's own id for it; also the ones removed from the list. */
+export function findImported(source: Shipment['source'], externalId: string): (Shipment & { hidden: boolean }) | null {
+  const r = db.prepare('SELECT * FROM shipments WHERE source = ? AND external_id = ?').get(source, externalId) as Record<string, unknown> | undefined
+  return r ? { ...toShipment(r), hidden: r.hidden === 1 } : null
+}
+
+export function addImported(source: Shipment['source'], externalId: string, s: ShipmentInput): number {
+  const r = db
+    .prepare(
+      `INSERT INTO shipments (source, external_id, asin, title, store, forwarder, carrier, tracking, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(source, externalId, s.asin, s.title, s.store, s.forwarder, s.carrier, s.tracking, s.status, now(), now())
+  return Number(r.lastInsertRowid)
+}
+
+/** A shipment added by hand that has this tracking number. */
+export function findManualByTracking(tracking: string): Shipment | null {
+  const r = db.prepare(`SELECT * FROM shipments WHERE source = 'manual' AND hidden = 0 AND tracking = ?`).get(tracking) as Record<string, unknown> | undefined
+  return r ? toShipment(r) : null
+}
+
+/** Hands a shipment added by hand over to the store account that also lists it. */
+export function adoptShipment(id: number, source: Shipment['source'], externalId: string): void {
+  db.prepare('UPDATE shipments SET source = ?, external_id = ? WHERE id = ?').run(source, externalId, id)
+}
+
+/** The store learns the carrier and the tracking number some time after the order. */
+export function setImportedRoute(id: number, carrier: string | null, tracking: string | null): void {
+  db.prepare('UPDATE shipments SET carrier = COALESCE(?, carrier), tracking = COALESCE(?, tracking) WHERE id = ?').run(carrier, tracking, id)
+}
+
+function parseLive(value: unknown): ShipmentTracking | null {
+  try {
+    return typeof value === 'string' ? (JSON.parse(value) as ShipmentTracking) : null
+  } catch {
+    return null
+  }
+}
+
+/** Stores what the carrier reported and, when it says so, the status that follows from it. */
+export function setShipmentLive(id: number, live: ShipmentTracking, status: Shipment['status'] | null, isNew = false): void {
+  const before = parseLive((db.prepare('SELECT live FROM shipments WHERE id = ?').get(id) as { live: unknown } | undefined)?.live)
+  db.prepare('UPDATE shipments SET live = ? WHERE id = ?').run(JSON.stringify(live), id)
+  // News for the bell: a new state or a new movement. The first read of a shipment added by
+  // hand only fills it in; one that a store account brought is news from the start.
+  const newest = (l: ShipmentTracking | null): string => (l?.events[0] ? `${l.events[0].at}|${l.events[0].text}` : '')
+  if (live.state && (live.state !== before?.state || newest(live) !== newest(before))) {
+    db.prepare('UPDATE shipments SET updated_at = ? WHERE id = ?').run(now(), id)
+    if (before?.state || isNew) {
+      const last = live.events[0]
+      db.prepare('INSERT INTO shipment_events (shipment_id, state, detail, created_at) VALUES (?, ?, ?, ?)').run(
+        id,
+        live.state,
+        last ? `${last.text}${last.place ? ` · ${last.place}` : ''}` : null,
+        now()
+      )
+    }
+  }
+  if (!status) return
+  db.prepare(
+    `UPDATE shipments SET status = ?, updated_at = ?,
+     delivered_at = CASE WHEN ? = 'delivered' THEN COALESCE(delivered_at, ?) ELSE NULL END WHERE id = ?`
+  ).run(status, now(), status, now(), id)
+}
+
+/** Adds a shipment, or updates the one with this id. The delivery time is kept from the first time it's marked delivered. */
+export function saveShipment(id: number | null, s: ShipmentInput): void {
+  const delivered = s.status === 'delivered' ? now() : null
+  if (id === null) {
+    db.prepare(
+      `INSERT INTO shipments (asin, title, store, forwarder, carrier, tracking, status, created_at, updated_at, delivered_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(s.asin, s.title, s.store, s.forwarder, s.carrier, s.tracking, s.status, now(), now(), delivered)
+    return
+  }
+  // What the carrier said belongs to one carrier and number: a different one starts clean.
+  db.prepare(
+    `UPDATE shipments SET live = CASE WHEN carrier IS ? AND tracking IS ? THEN live ELSE NULL END,
+     asin = ?, title = ?, store = ?, forwarder = ?, carrier = ?, tracking = ?, status = ?, updated_at = ?,
+     delivered_at = CASE WHEN ? IS NULL THEN NULL ELSE COALESCE(delivered_at, ?) END WHERE id = ?`
+  ).run(s.carrier, s.tracking, s.asin, s.title, s.store, s.forwarder, s.carrier, s.tracking, s.status, now(), delivered, delivered, id)
+}
+
+/** Shipments read from a store are only hidden: deleted, the next read would bring them back. */
+export function removeShipment(id: number): void {
+  db.prepare('DELETE FROM shipment_events WHERE shipment_id = ?').run(id)
+  db.prepare(`DELETE FROM shipments WHERE id = ? AND source = 'manual'`).run(id)
+  db.prepare('UPDATE shipments SET hidden = 1 WHERE id = ?').run(id)
 }

@@ -20,6 +20,7 @@ A Windows desktop app (Electron + React + TypeScript) that watches the prices of
 - **Export** any product's price history, or all of it, to CSV.
 - **"Saved for later" and wishlists:** optionally track the cart's "Saved for later" items and any of your wishlists (paste the list's link); items leave tracking when you remove them on Amazon.
 - **Track products outside your cart** by pasting a product link (including `amzn.to` links) or an ASIN.
+- **Shipments:** what you bought in any store, with who carries it, its tracking number and where it is. Servientrega is read by the app itself; connect your Encargomio, Temu or Amazon account and their orders show up on their own. Every change lands in the bell and in your alert channels.
 
 ## How alerts work
 
@@ -109,11 +110,12 @@ Prices are stored in USD. If your Amazon account shows prices in COP, they're co
 ## Security and privacy
 
 - **Amazon session:** the sign-in cookies are stored **encrypted** with your Windows account (Chromium cookie encryption, DPAPI) in an isolated session (`persist:amazon`). The file is locked while the app runs. The app never sees or stores your Amazon password: you type it on Amazon's page.
+- **Store accounts (Temu, Encargomio):** each one signs in on the store's own page, in its own isolated session (`persist:temu`, `persist:encargomio`), like Amazon. The app reads the order list those pages load and keeps the items, status, carrier, tracking number and movements, never the name or address that come with them. It doesn't work around sign-in or human checks: when a store asks for one, it tells you to open it.
 - **Resend key and Telegram token:** encrypted with your Windows account (`safeStorage`, DPAPI), never written in plain text and never sent to the UI.
 - **Hardened executable (Electron fuses):** the installed `.exe` can't be run as a plain Node.js runtime (`ELECTRON_RUN_AS_NODE`), doesn't accept `NODE_OPTIONS` or `--inspect` debugging, only loads its own `app.asar` and refuses to start if it was tampered with.
 - **Windows and pages:** the UI runs with `contextIsolation`, `sandbox`, no Node access and a strict Content Security Policy, and can only call the functions in `src/preload/index.ts`; IPC calls from any other page are rejected. Amazon windows can't leave amazon.com, no page gets camera/mic/location/notification permissions, pop-ups and `<webview>` are blocked, links open in your browser only for known sites (Amazon, GitHub, Resend, Telegram), and DevTools and the menu are off in the installed app.
 - **Updates** are downloaded over HTTPS from this repo's GitHub Releases and checked against the SHA-512 in `latest.yml`. Protect the GitHub account with 2FA: whoever can publish a release can ship an update.
-- **What's on disk:** everything stays in `%APPDATA%mazon-price-tracker` (development runs use `amazon-price-tracker-dev`). Nothing is sent anywhere except to Amazon, Resend, Telegram, the exchange-rate API and GitHub (update checks).
+- **What's on disk:** everything stays in `%APPDATA%mazon-price-tracker` (development runs use `amazon-price-tracker-dev`). Nothing is sent anywhere except to Amazon, Resend, Telegram, the exchange-rate and TRM sources, GitHub (update checks), the stores you compare prices with, and, for shipments, Servientrega and the store accounts you connect.
 - **The repo** holds no personal data: databases, `.env` files, builds and previews are ignored, and the test pages in `tests/fixtures` are trimmed and anonymized.
 
 **Limits:** DPAPI protects your data from other Windows users and from copies of the files, not from malware already running as *your* user, which can ask Windows to decrypt like the app does. Keep Windows and your antivirus up to date. And don't install a version older than 1.1.4 over a newer one: older versions can't read the encrypted cookies and you'd have to sign in to Amazon again.
@@ -179,7 +181,7 @@ Put your icon files in [`resources/`](resources/README.md) (`icon.ico`, `icon.pn
 
 The installed app checks [GitHub Releases](https://github.com/PedroGraph/price-tracker/releases) on startup and every 6 hours, downloads new versions in the background, and offers **Restart to update**.
 
-To publish a version, bump `version` in `package.json` (higher than the installed one), commit, and push a matching tag:
+To publish a version, bump `version` in `package.json` (higher than the installed one), add what changed to [`src/shared/whatsNew.ts`](src/shared/whatsNew.ts) under that same version (the app shows it once in a pop-up after updating), commit, and push a matching tag:
 
 ```bash
 git tag v1.2.0

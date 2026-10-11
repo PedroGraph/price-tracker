@@ -45,7 +45,31 @@ export function isStoreUrl(url: string): boolean {
 }
 
 /** Sites the app is allowed to open in the user's browser. Anything else is ignored. */
-const EXTERNAL = ['amazon.com', 'github.com', 'resend.com', 't.me', 'telegram.org', ...STORES]
+const EXTERNAL = [
+  'amazon.com',
+  'github.com',
+  'resend.com',
+  't.me',
+  'telegram.org',
+  ...STORES,
+  // Shipments: the other stores' order pages and the carriers' tracking pages.
+  'temu.com',
+  'encargomio.com',
+  'aliexpress.com',
+  'shein.com',
+  '17track.net',
+  'servientrega.com',
+  'coordinadora.com',
+  'interrapidisimo.com',
+  'envia.co',
+  'tcc.com.co',
+  'deprisa.com',
+  '4-72.com.co',
+  'dhl.com',
+  'fedex.com',
+  'ups.com',
+  'usps.com'
+]
 
 export function isAllowedExternal(url: string): boolean {
   const u = parse(url)

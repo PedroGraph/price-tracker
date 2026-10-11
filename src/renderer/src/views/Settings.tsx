@@ -47,12 +47,14 @@ export function SettingsView({
   settings,
   status,
   onSaved,
-  notify
+  notify,
+  onShowNews
 }: {
   settings: Settings
   status: Status | null
   onSaved: (s: Settings) => void
   notify: Notify
+  onShowNews: () => void
 }) {
   const { currency, setCurrency } = useMoney()
   const { t, tn } = useT()
@@ -451,11 +453,12 @@ export function SettingsView({
           </div>
           <Segmented
             options={[
+              { value: 'auto', label: t('Same as Windows') },
               { value: 'en', label: 'English' },
               { value: 'es', label: 'Español' }
             ]}
-            value={draft.language}
-            onChange={(v) => save({ language: v })}
+            value={draft.languageChoice}
+            onChange={(v) => save({ languageChoice: v })}
           />
         </div>
         <div className="toggle-row">
@@ -481,6 +484,9 @@ export function SettingsView({
                 : t(UPDATE_LABEL[status?.update.status ?? 'idle'] || 'Updates are downloaded automatically from GitHub Releases.')}
             </small>
           </div>
+          <button className="btn link" onClick={onShowNews}>
+            {t('What’s new')}
+          </button>
           {status?.update.status === 'ready' ? (
             <button className="btn primary" onClick={() => void window.api.installUpdate()}>
               {t('Restart to update')}

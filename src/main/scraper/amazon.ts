@@ -3,11 +3,12 @@ import { keepOnAmazon } from '../security'
 import { parsePrice } from '@shared/pricing'
 import type { SearchPage, SessionState } from '@shared/types'
 import { wishlistId } from '@shared/urls'
-import { extractCart, extractOffers, extractProduct, extractProductExtras, extractSearch, extractWishlist, isUnavailable, type PageFlags, type RawExtras } from './extractors'
+import { extractCart, extractOffers, extractOrders, extractProduct, extractProductExtras, extractSearch, extractWishlist, isUnavailable, type PageFlags, type RawExtras } from './extractors'
 import { parseCount, parseHistogram, parseRating, parseSalesRank, parseStockLeft } from '@shared/extras'
 
 const PARTITION = 'persist:amazon'
 const BASE = 'https://www.amazon.com'
+const ORDERS_URL = `${BASE}/your-orders/orders?timeFilter=months-3`
 
 export class SessionError extends Error {
   constructor(public state: Extract<SessionState, 'logged_out' | 'captcha'>) {
@@ -32,14 +33,15 @@ const webPreferences = (): Electron.WebPreferences => ({
 
 /**
  * Opens a visible Amazon window with the app's session (cookies persist on disk):
- * the cart to sign in, or a product page.
+ * the cart to sign in, a product page, or "Your orders" (which Amazon protects with the
+ * password again, even with the session open).
  */
-export function openAmazonWindow(parent?: BrowserWindow, asin?: string): Promise<void> {
+export function openAmazonWindow(parent?: BrowserWindow, asin?: string, orders = false): Promise<void> {
   return new Promise((resolve) => {
     const win = new BrowserWindow({ width: 1100, height: 850, parent, title: asin ? 'Amazon' : 'Amazon — sign in', webPreferences: webPreferences() })
     win.setMenuBarVisibility(false)
     keepOnAmazon(win.webContents)
-    win.loadURL(asin ? `${BASE}/dp/${asin}` : `${BASE}/gp/cart/view.html`)
+    win.loadURL(orders ? ORDERS_URL : asin ? `${BASE}/dp/${asin}` : `${BASE}/gp/cart/view.html`)
     // Write the new sign-in cookies to disk right away so they survive a crash or forced exit.
     win.on('closed', () => {
       amazonSession().flushStorageData()
@@ -113,6 +115,13 @@ export class Scraper {
     const { items, cartFound } = await this.run(`${BASE}/gp/cart/view.html`, extractCart)
     if (!cartFound) throw new PageChangedError('Cart page: the cart container was not found')
     return items.map((i) => ({ ...i, price: parsePrice(i.priceText, copPerUsd) }))
+  }
+
+  /** The shipments of the orders of the last three months, as "Your orders" lists them. */
+  async orders() {
+    const { boxes, found } = await this.run(ORDERS_URL, extractOrders)
+    if (!found) throw new PageChangedError('Orders page: the order list was not found')
+    return boxes
   }
 
   /** Every item of a wishlist; scrolls to make Amazon load long lists. */

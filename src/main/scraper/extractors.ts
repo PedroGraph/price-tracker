@@ -308,6 +308,47 @@ export function extractSearch(): PageFlags & {
   return { loggedOut: false, captcha, results, found, filters, sorts, sort: sortSelect?.value ?? null }
 }
 
+/** One shipment of an order: Amazon splits an order into one box per shipment. */
+export interface RawOrderBox {
+  orderId: string | null
+  /** "Arriving tomorrow" / "Entregado el 3 de octubre". */
+  status: string | null
+  /** The smaller line under it, when there is one. */
+  detail: string | null
+  items: { asin: string | null; title: string | null }[]
+}
+
+/** The shipments on the "Your orders" page. */
+export function extractOrders(): PageFlags & { found: boolean; boxes: RawOrderBox[] } {
+  const text = (el: Element | null | undefined): string | null => el?.textContent?.replace(/\s+/g, ' ').trim() || null
+  const boxes: RawOrderBox[] = []
+  const seen = new Set<Element>()
+  document.querySelectorAll('.order-card').forEach((card) => {
+    const orderId = /\d{3}-\d{7}-\d{7}/.exec(card.querySelector('.yohtmlc-order-id')?.textContent ?? '')?.[0] ?? null
+    card.querySelectorAll('.delivery-box').forEach((box) => {
+      if (seen.has(box)) return
+      seen.add(box)
+      boxes.push({
+        orderId,
+        status: text(box.querySelector('.delivery-box__primary-text')),
+        detail: text(box.querySelector('.delivery-box__secondary-text')),
+        items: [...box.querySelectorAll('.yohtmlc-product-title')].map((title) => {
+          const link = title.querySelector('a[href*="/dp/"]') ?? title.closest('.item-box')?.querySelector('a[href*="/dp/"]')
+          return { asin: /\/dp\/([A-Z0-9]{10})/.exec(link?.getAttribute('href') ?? '')?.[1] ?? null, title: text(title) }
+        })
+      })
+    })
+  })
+  return {
+    captcha: !!document.querySelector('form[action*="validateCaptcha"]'),
+    // Amazon sends this page to its sign-in form when the session is closed, or asks for the password again.
+    loggedOut: /\/ap\/signin/.test(location.pathname) || !!document.querySelector('form[name="signIn"]'),
+    // The time filter is there even when the list is empty.
+    found: !!document.querySelector('#time-filter, .order-card'),
+    boxes
+  }
+}
+
 export interface RawReview {
   title: string | null
   stars: string | null

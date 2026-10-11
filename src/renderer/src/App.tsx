@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Notifications } from './Notifications'
-import { ChartColumn, ChevronLeft, Moon, RefreshCw, Settings as Gear, Sun, TrendingUp } from 'lucide-react'
+import { ChartColumn, ChevronLeft, Moon, RefreshCw, Settings as Gear, Sparkles, Sun, TrendingUp, Truck } from 'lucide-react'
+import { WHATS_NEW, type WhatsNewEntry } from '@shared/whatsNew'
 import type { DashboardStats, Product, Settings, Status } from '@shared/types'
 import { LangContext, useT } from './i18n'
 import { MoneyContext, type DisplayCurrency } from './money'
@@ -9,9 +10,10 @@ import { Dashboard } from './views/Dashboard'
 // Loaded when first opened, so the dashboard shows up without the chart and settings code.
 const ProductDetail = lazy(() => import('./views/ProductDetail').then((m) => ({ default: m.ProductDetail })))
 const StatsView = lazy(() => import('./views/Stats').then((m) => ({ default: m.StatsView })))
+const ShipmentsView = lazy(() => import('./views/Shipments').then((m) => ({ default: m.ShipmentsView })))
 const SettingsView = lazy(() => import('./views/Settings').then((m) => ({ default: m.SettingsView })))
 
-type View = { name: 'dashboard' } | { name: 'product'; asin: string } | { name: 'settings' } | { name: 'stats' }
+type View = { name: 'dashboard' } | { name: 'product'; asin: string } | { name: 'settings' } | { name: 'stats' } | { name: 'shipments' }
 type Theme = 'light' | 'dark'
 export type Notify = (text: string, error?: boolean) => void
 
@@ -34,9 +36,47 @@ function store(key: string, value: string): void {
 export function App() {
   const [settings, setSettings] = useState<Settings | null>(null)
   return (
-    <LangContext.Provider value={settings?.language ?? 'en'}>
+    // Until the settings arrive, the PC's language, which is also what "automatic" resolves to.
+    <LangContext.Provider value={settings?.language ?? (navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en')}>
       <Shell settings={settings} setSettings={setSettings} />
     </LangContext.Provider>
+  )
+}
+
+/** The pop-up with what changed, one block per version. Closes with its button, Escape or a click outside. */
+function WhatsNew({ entries, onClose }: { entries: WhatsNewEntry[]; onClose: () => void }) {
+  const { t, lang } = useT()
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  })
+  return (
+    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="card modal" role="dialog" aria-modal="true" aria-label={t('What’s new')}>
+        <div className="modal-head">
+          <Sparkles size={22} />
+          <h2>{t('What’s new')}</h2>
+        </div>
+        <div className="modal-body">
+          {entries.map((e) => (
+            <section key={e.version}>
+              <h3>{t('Version {version}', { version: e.version })}</h3>
+              <ul>
+                {e.notes[lang].map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+        <button className="btn primary" autoFocus onClick={onClose}>
+          {t('Got it')}
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -53,6 +93,15 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
   const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
   const [, tick] = useState(0)
+  // The "what's new" pop-up: after an update, or opened from Settings.
+  const [news, setNews] = useState<WhatsNewEntry[]>([])
+  useEffect(() => {
+    void window.api.pendingNews().then(setNews)
+  }, [])
+  const closeNews = (): void => {
+    setNews([])
+    void window.api.markNewsSeen()
+  }
 
   const reload = useCallback(async () => {
     const [p, s] = await Promise.all([window.api.listProducts(), window.api.getStats()])
@@ -140,6 +189,7 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
             <Notifications
               status={status}
               onOpen={(asin) => setView({ name: 'product', asin })}
+              onOpenShipments={() => setView({ name: 'shipments' })}
               onTrack={async (asin) => {
                 try {
                   await window.api.addProduct(asin)
@@ -150,6 +200,9 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
                 }
               }}
             />
+            <button className="icon-btn" onClick={() => setView({ name: 'shipments' })} aria-label={t('Shipments')} title={t('Shipments')}>
+              <Truck size={18} />
+            </button>
             <button className="icon-btn" onClick={() => setView({ name: 'stats' })} aria-label={t('Statistics')} title={t('Statistics')}>
               <ChartColumn size={18} />
             </button>
@@ -162,7 +215,7 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
           <>
             {back}
             <span className={view.name === 'product' ? 'crumb' : 'crumb strong'}>
-              {view.name === 'settings' ? t('Settings') : view.name === 'stats' ? t('Statistics') : t('Product details')}
+              {view.name === 'settings' ? t('Settings') : view.name === 'stats' ? t('Statistics') : view.name === 'shipments' ? t('Shipments') : t('Product details')}
             </span>
             <div className="spacer" />
             {themeButton}
@@ -223,12 +276,16 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
           />
         )}
         {view.name === 'stats' && <StatsView products={products} onOpen={(asin) => setView({ name: 'product', asin })} />}
+        {view.name === 'shipments' && (
+          <ShipmentsView products={products} onOpen={(asin) => setView({ name: 'product', asin })} notify={notify} />
+        )}
         {view.name === 'settings' && settings && (
-          <SettingsView settings={settings} status={status} onSaved={setSettings} notify={notify} />
+          <SettingsView settings={settings} status={status} onSaved={setSettings} notify={notify} onShowNews={() => setNews(WHATS_NEW.slice(0, 1))} />
         )}
         </Suspense>
       </main>
 
+      {news.length > 0 && <WhatsNew entries={news} onClose={closeNews} />}
       {toast && <div className={toast.error ? 'toast error' : 'toast'}>{toast.text}</div>}
     </MoneyContext.Provider>
   )

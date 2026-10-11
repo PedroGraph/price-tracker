@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, ExternalLink, Loader2, Plus, RefreshCw, TicketPercent, X } from 'lucide-react'
-import type { AlertItem, Status, Suggestion } from '@shared/types'
+import { Bell, ExternalLink, Loader2, Plus, RefreshCw, TicketPercent, Truck, X } from 'lucide-react'
+import type { AlertItem, ShipmentNotice, Status, Suggestion } from '@shared/types'
 import { useT } from './i18n'
 import { useMoney } from './money'
 import { EVENT_LABEL, Thumb, timeAgo } from './ui'
@@ -15,15 +15,18 @@ type Tab = 'alerts' | 'coupons'
 export function Notifications({
   status,
   onTrack,
-  onOpen
+  onOpen,
+  onOpenShipments
 }: {
   status: Status | null
   onTrack: (asin: string) => Promise<void>
   onOpen: (asin: string) => void
+  onOpenShipments: () => void
 }) {
   const { t } = useT()
   const { fmt } = useMoney()
   const [alerts, setAlerts] = useState<AlertItem[]>([])
+  const [shipments, setShipments] = useState<ShipmentNotice[]>([])
   const [seenAt, setSeenAt] = useState<string | null>(null)
   const [coupons, setCoupons] = useState<Suggestion[]>([])
   const [open, setOpen] = useState(false)
@@ -36,9 +39,11 @@ export function Notifications({
     void window.api.listSuggestions().then(setCoupons)
     void window.api.listAlerts().then((r) => {
       setAlerts(r.alerts)
+      setShipments(r.shipments)
       setSeenAt(r.seenAt)
     })
-  }, [status?.lastRunAt, status?.running])
+    // Every status message: shipments are read between price checks too.
+  }, [status])
 
   // Close when clicking outside the panel.
   useEffect(() => {
@@ -50,8 +55,12 @@ export function Notifications({
     return () => document.removeEventListener('mousedown', onDown)
   })
 
-  const isUnread = (a: AlertItem): boolean => !seenAt || a.createdAt > seenAt
-  const unread = alerts.filter(isUnread).length
+  const isUnread = (a: { createdAt: string }): boolean => !seenAt || a.createdAt > seenAt
+  // Price alerts and shipment news in one list, newest first.
+  const feed = [...alerts.map((alert) => ({ at: alert.createdAt, alert, shipment: null })), ...shipments.map((shipment) => ({ at: shipment.createdAt, alert: null, shipment }))].sort(
+    (a, b) => b.at.localeCompare(a.at)
+  )
+  const unread = feed.filter((f) => isUnread({ createdAt: f.at })).length
   const badge = unread + coupons.length
 
   // Opening the panel marks the alerts as seen; they stay highlighted until it closes.
@@ -121,10 +130,35 @@ export function Notifications({
 
           <div className="notif-body">
             {tab === 'alerts' ? (
-              alerts.length === 0 ? (
+              feed.length === 0 ? (
                 <p className="muted notif-empty">{t('No alerts in the last 30 days.')}</p>
               ) : (
-                alerts.map((a) => (
+                feed.map(({ alert: a, shipment: s }) =>
+                  s ? (
+                    <button
+                      key={`s${s.id}`}
+                      className={isUnread(s) ? 'notif-item alert unread' : 'notif-item alert'}
+                      onClick={() => {
+                        close()
+                        onOpenShipments()
+                      }}
+                    >
+                      <div className="thumb">
+                        <Truck size={22} strokeWidth={1.6} />
+                      </div>
+                      <div className="info">
+                        <span className="notif-type shipment">
+                          {t('Shipment')} · {s.store}
+                        </span>
+                        <h4 title={s.title}>{s.title}</h4>
+                        <div className="meta">
+                          <span className="price">{s.state}</span>
+                          <span className="faint">{timeAgo(s.createdAt, t)}</span>
+                        </div>
+                        {s.detail && <div className="meta muted">{s.detail}</div>}
+                      </div>
+                    </button>
+                  ) : a ? (
                   <button
                     key={a.id}
                     className={isUnread(a) ? 'notif-item alert unread' : 'notif-item alert'}
@@ -143,7 +177,8 @@ export function Notifications({
                       </div>
                     </div>
                   </button>
-                ))
+                  ) : null
+                )
               )
             ) : refreshing && coupons.length === 0 ? (
               <p className="muted searching notif-empty">

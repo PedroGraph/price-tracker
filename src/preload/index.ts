@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { BackupInfo } from '../main/backup'
-import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Suggestion, AlertItem, SaleOutlook, ProductStats, ReviewsInfo, Purchase, Trm, Comparison, RadarDeal, Status, Threshold, TrackerEvent } from '@shared/types'
+import type { WhatsNewEntry } from '@shared/whatsNew'
+import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Suggestion, AlertItem, SaleOutlook, ProductStats, ReviewsInfo, Purchase, Trm, Comparison, RadarDeal, LinkedStore, Shipment, ShipmentInput, ShipmentNotice, Status, Threshold, TrackerEvent } from '@shared/types'
 
 /** The only surface the UI can reach. Each method maps to one IPC channel. */
 const api = {
@@ -35,6 +36,20 @@ const api = {
   setWindowTheme: (dark: boolean): Promise<void> => ipcRenderer.invoke('window:theme', dark),
   getReviews: (asin: string): Promise<ReviewsInfo | null> => ipcRenderer.invoke('products:reviews', asin),
   setPurchase: (asin: string, p: Purchase | null): Promise<void> => ipcRenderer.invoke('products:purchase', asin, p),
+  listShipments: (): Promise<Shipment[]> => ipcRenderer.invoke('shipments:list'),
+  /** Adds a shipment (id null) or updates one; resolves to the new list. */
+  saveShipment: (id: number | null, shipment: ShipmentInput): Promise<Shipment[]> => ipcRenderer.invoke('shipments:save', id, shipment),
+  /** Reads the carriers again now; resolves to the new list. */
+  refreshShipments: (): Promise<Shipment[]> => ipcRenderer.invoke('shipments:refresh'),
+  listStores: (): Promise<LinkedStore[]> => ipcRenderer.invoke('stores:list'),
+  /** Opens the store's sign-in window; resolves when it's closed and its orders were read. */
+  connectStore: (id: LinkedStore['id']): Promise<LinkedStore[]> => ipcRenderer.invoke('stores:connect', id),
+  disconnectStore: (id: LinkedStore['id']): Promise<LinkedStore[]> => ipcRenderer.invoke('stores:disconnect', id),
+  removeShipment: (id: number): Promise<Shipment[]> => ipcRenderer.invoke('shipments:remove', id),
+  copyText: (text: string): Promise<void> => ipcRenderer.invoke('clipboard:copy', text),
+  /** What's new since the version last run here; empty when there's nothing to show. */
+  pendingNews: (): Promise<WhatsNewEntry[]> => ipcRenderer.invoke('news:pending'),
+  markNewsSeen: (): Promise<void> => ipcRenderer.invoke('news:seen'),
   getTrm: (): Promise<Trm | null> => ipcRenderer.invoke('trm:get'),
   getRadar: (): Promise<{ updatedAt: string | null; deals: RadarDeal[] }> => ipcRenderer.invoke('radar:get'),
   refreshRadar: (): Promise<{ updatedAt: string | null; deals: RadarDeal[] }> => ipcRenderer.invoke('radar:refresh'),
@@ -45,7 +60,7 @@ const api = {
   productStats: (): Promise<ProductStats[]> => ipcRenderer.invoke('stats:products'),
   priceSeries: (asins: string[]): Promise<{ asin: string; points: { at: string; price: number }[] }[]> =>
     ipcRenderer.invoke('stats:series', asins),
-  listAlerts: (): Promise<{ alerts: AlertItem[]; seenAt: string | null }> => ipcRenderer.invoke('notifications:list'),
+  listAlerts: (): Promise<{ alerts: AlertItem[]; shipments: ShipmentNotice[]; seenAt: string | null }> => ipcRenderer.invoke('notifications:list'),
   markAlertsSeen: (): Promise<void> => ipcRenderer.invoke('notifications:seen'),
   /** A Windows notification was clicked: open that product. */
   onOpenProduct: (cb: (asin: string) => void): (() => void) => {

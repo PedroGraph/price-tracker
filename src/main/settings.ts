@@ -26,33 +26,39 @@ const DEFAULTS: Omit<Settings, Derived | 'language'> = {
   wishlists: [],
   alertOnTotal: false,
   trmAlert: false,
-  trmTarget: null
+  trmTarget: null,
+  languageChoice: 'auto'
 }
 
 const OLD_DEFAULT_FROM = 'Amazon Price Tracker <onboarding@resend.dev>'
 
 export function getSettings(): Settings {
-  const stored = getSetting<Partial<Settings>>('settings', {})
+  const { language: saved, ...stored } = getSetting<Partial<Settings>>('settings', {})
   // The app was renamed; move the old default sender name along with it.
   if (stored.emailFrom === OLD_DEFAULT_FROM) stored.emailFrom = DEFAULTS.emailFrom
+  const system = app.getLocale().toLowerCase().startsWith('es') ? 'es' : 'en'
+  // Before "automatic" existed, the language in use was saved along with any other change:
+  // it only counts as a choice when it isn't the PC's own.
+  const languageChoice = stored.languageChoice ?? (saved && saved !== system ? saved : 'auto')
   return {
     ...DEFAULTS,
-    // Until chosen in Settings, follow the Windows display language.
-    language: app.getLocale().toLowerCase().startsWith('es') ? 'es' : 'en',
     ...stored,
+    languageChoice,
+    language: languageChoice === 'auto' ? system : languageChoice,
     hasResendKey: getSetting<string | null>('resendKey', null) !== null,
     hasTelegramToken: getSetting<string | null>('telegramToken', null) !== null
   }
 }
 
 export function saveSettings(patch: Partial<Settings>): Settings {
-  const { hasResendKey: _r, hasTelegramToken: _t, ...rest } = patch
+  const { hasResendKey: _r, hasTelegramToken: _t, language: _l, ...rest } = patch
   const prev = getSettings()
   const next = { ...prev, ...rest }
   // Switching what alerts compare restarts every base from the current value, so it doesn't fire at once.
   if (next.alertOnTotal !== prev.alertOnTotal) rebaseAll(next.alertOnTotal)
   if (!(next.intervalMinutes >= 15)) next.intervalMinutes = 15
-  const { hasResendKey: _r2, hasTelegramToken: _t2, ...stored } = next
+  // The language in use is worked out on every read, never stored.
+  const { hasResendKey: _r2, hasTelegramToken: _t2, language: _l2, ...stored } = next
   setSetting('settings', stored)
   app.setLoginItemSettings({ openAtLogin: next.launchAtStartup, args: ['--hidden'] })
   return getSettings()

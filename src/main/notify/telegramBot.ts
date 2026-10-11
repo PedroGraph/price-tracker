@@ -104,9 +104,12 @@ async function handle(text: string | undefined): Promise<void> {
       void runCheck()
       return reply(tr('Tracking {asin}. I’ll check its price now.', { asin }))
     }
-    case 'check':
+    case 'check': {
+      // Read before starting: runCheck() marks the check as running right away.
+      const busy = status.running
       void runCheck()
-      return reply(status.running ? tr('A check is already running.') : tr('Checking prices now…'))
+      return reply(busy ? tr('A check is already running.') : tr('Checking prices now…'))
+    }
     case 'pause': {
       const hours = pauseHours(cmd.arg)
       const until = new Date(Date.now() + hours * 3_600_000)

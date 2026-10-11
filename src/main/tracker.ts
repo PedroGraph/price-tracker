@@ -217,14 +217,21 @@ async function track(): Promise<RunOutcome> {
     scraper.close()
   }
 
-  try {
-    await flushQueuedAlerts(rate)
-    await deliverAlerts(alerts, rate)
-  } catch (err) {
+  counts = { checked, unreadable: unreadable.length, alerts: alerts.length }
+  // Separately: held alerts that can't be sent must not keep this check's alerts from going out.
+  const failures: unknown[] = []
+  for (const step of [() => flushQueuedAlerts(rate), () => deliverAlerts(alerts, rate)]) {
+    try {
+      await step()
+    } catch (err) {
+      failures.push(err)
+    }
+  }
+  if (failures.length) {
+    const err = failures[0]
     return { kind: 'error', message: `Sending alerts failed: ${err instanceof Error ? err.message : String(err)}` }
   }
 
-  counts = { checked, unreadable: unreadable.length, alerts: alerts.length }
   if (checked > 0 && unreadable.length === checked) {
     return { kind: 'broken', reason: `Product pages: no price or availability found (${unreadable.join(', ')})` }
   }

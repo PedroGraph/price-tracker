@@ -209,6 +209,8 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
         )}
         {view.name === 'product' && settings && (
           <ProductDetail
+            // A fresh page per product: the form fields start from that product's values.
+            key={view.asin}
             product={products.find((p) => p.asin === view.asin)}
             globalThreshold={settings.threshold}
             allTags={[...new Set(products.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b))}

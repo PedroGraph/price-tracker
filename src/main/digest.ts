@@ -1,7 +1,7 @@
 import { formatCop, formatUsd } from '@shared/pricing'
 import { digestDue } from '@shared/schedule'
 import * as db from './db'
-import { sendReport } from './notify'
+import { sendReport, wasDelivered } from './notify'
 import { digestEmail } from './notify/emailTemplate'
 import { getSettings, tr } from './settings'
 
@@ -59,6 +59,12 @@ export async function maybeSendDigest(rate: number | null, now = new Date()): Pr
     )
   ].join('\n')
 
-  await sendReport(title, html, telegram, true)
+  try {
+    await sendReport(title, html, telegram, true)
+  } catch (e) {
+    // Reached one channel: done, or that channel would get it again on every retry.
+    if (wasDelivered(e)) db.setSetting('digestSentAt', now.toISOString())
+    throw e
+  }
   db.setSetting('digestSentAt', now.toISOString())
 }

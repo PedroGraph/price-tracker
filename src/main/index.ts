@@ -334,6 +334,7 @@ function registerIpc(): void {
     const info = await restoreBackup(pickedBackup, password || null)
     pickedBackup = null
     schedule()
+    syncBot()
     events.emit('status', { ...status })
     return info
   })

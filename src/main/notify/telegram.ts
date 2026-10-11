@@ -44,12 +44,13 @@ export async function detectChat(): Promise<{ id: string; label: string }> {
   return { id: String(chat.id), label: chat.title ?? chat.username ?? chat.first_name ?? String(chat.id) }
 }
 
-/** Sends one HTML-formatted message. Does nothing when Telegram isn't set up and enabled. */
-export async function sendTelegram(html: string, force = false): Promise<void> {
+/** Sends one HTML-formatted message. Resolves to false, sending nothing, when Telegram isn't set up and enabled. */
+export async function sendTelegram(html: string, force = false): Promise<boolean> {
   const { telegramEnabled, telegramChatId } = getSettings()
   const token = getSecret('telegramToken')
-  if (!token || !telegramChatId || (!telegramEnabled && !force)) return
+  if (!token || !telegramChatId || (!telegramEnabled && !force)) return false
   await call(token, 'sendMessage', { chat_id: telegramChatId, text: html, parse_mode: 'HTML', disable_web_page_preview: true })
+  return true
 }
 
 export async function sendTelegramTest(): Promise<void> {

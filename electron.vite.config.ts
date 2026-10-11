@@ -12,7 +12,8 @@ const CSP = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  "img-src 'self' https://*.media-amazon.com https://*.ssl-images-amazon.com data:",
+  // Amazon's pictures, plus the other stores' in the price comparison.
+  "img-src 'self' https://*.media-amazon.com https://*.ssl-images-amazon.com https://*.ebayimg.com https://*.walmartimages.com https://*.mlstatic.com data:",
   "connect-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",

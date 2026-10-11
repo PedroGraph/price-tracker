@@ -16,6 +16,31 @@ export interface Alert {
   shipping: number | null
   seller: string | null
   sellerId: string | null
+  /** Already shown as a Windows notification; set when a failed send is kept to try again. */
+  shown?: boolean
+}
+
+/** A channel failed. `delivered` says whether another channel still got the message. */
+class DeliveryError extends Error {
+  constructor(
+    cause: unknown,
+    readonly delivered: boolean
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause))
+  }
+}
+
+/** True for a send that failed on one channel but reached another, so it shouldn't be repeated. */
+export const wasDelivered = (e: unknown): boolean => e instanceof DeliveryError && e.delivered
+
+/**
+ * Waits for every channel (each resolves to whether it sent anything): one failing doesn't
+ * stop the others. Throws the first failure afterwards so it can be reported.
+ */
+async function deliver(channels: Promise<boolean>[]): Promise<void> {
+  const results = await Promise.allSettled(channels)
+  const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+  if (failed) throw new DeliveryError(failed.reason, results.some((r) => r.status === 'fulfilled' && r.value))
 }
 
 // English keys, translated with tr() where used.
@@ -68,10 +93,10 @@ function summary(a: Alert, rate: number | null): string {
   return tr('The product is currently unavailable')
 }
 
-async function sendEmail(alerts: Alert[], rate: number | null): Promise<void> {
+async function sendEmail(alerts: Alert[], rate: number | null): Promise<boolean> {
   const { emailTo, emailFrom, language } = getSettings()
   const key = getResendKey()
-  if (!key || !emailTo || alerts.length === 0) return
+  if (!key || !emailTo || alerts.length === 0) return false
 
   const cards: EmailAlert[] = alerts.map((a) => ({
     type: a.type,
@@ -92,16 +117,17 @@ async function sendEmail(alerts: Alert[], rate: number | null): Promise<void> {
       : tr('{n} price alerts from your Amazon cart', { n: alerts.length })
 
   await sendRaw({ key, from: emailFrom, to: emailTo, subject, html: alertEmail(cards, rate, language) })
+  return true
 }
 
 /**
  * Emails about the app itself (session lost, scraper broken) and summaries. `html` is the
  * body of a plain card, or a whole email when `full`. Silently skipped without email setup.
  */
-async function sendSystemEmail(subject: string, html: string, full = false): Promise<void> {
+async function sendSystemEmail(subject: string, html: string, full = false): Promise<boolean> {
   const { emailTo, emailFrom } = getSettings()
   const key = getResendKey()
-  if (!key || !emailTo) return
+  if (!key || !emailTo) return false
   await sendRaw({
     key,
     from: emailFrom,
@@ -109,6 +135,7 @@ async function sendSystemEmail(subject: string, html: string, full = false): Pro
     subject,
     html: full ? html : messageEmail(subject, html, getSettings().language)
   })
+  return true
 }
 
 /** Messages about the app itself, sent to every configured channel. */
@@ -118,9 +145,7 @@ export async function sendSystemMessage(subject: string, html: string): Promise<
 
 /** An email and a Telegram message with their own formatting (summaries, warnings). */
 export async function sendReport(subject: string, emailHtml: string, telegramHtml: string, fullEmail = false): Promise<void> {
-  const results = await Promise.allSettled([sendSystemEmail(subject, emailHtml, fullEmail), sendTelegram(telegramHtml)])
-  const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-  if (failed.length) throw failed[0].reason
+  await deliver([sendSystemEmail(subject, emailHtml, fullEmail), sendTelegram(telegramHtml)])
 }
 
 function telegramAlerts(alerts: Alert[], rate: number | null): string {
@@ -138,8 +163,16 @@ function telegramAlerts(alerts: Alert[], rate: number | null): string {
     .join('\n\n')
 }
 
-/** Alerts held back during quiet hours, kept in the settings table so they survive a restart. */
+/**
+ * Alerts held back during quiet hours, or that no channel could send yet, kept in the
+ * settings table so they survive a restart.
+ */
 const queued = (): Alert[] => getSetting<Alert[]>('queuedAlerts', [])
+/** Only the latest are kept, so a channel that stays broken can't pile them up forever. */
+const MAX_QUEUED = 100
+const hold = (alerts: Alert[]): void => setSetting('queuedAlerts', [...queued(), ...alerts].slice(-MAX_QUEUED))
+/** For a retry: the Windows notification isn't shown a second time. */
+const asShown = (alerts: Alert[]): Alert[] => alerts.map((a) => ({ ...a, shown: true }))
 
 /** Quiet hours, or alerts paused from Telegram with /pausar. */
 export function inQuietHours(now = new Date()): boolean {
@@ -151,30 +184,37 @@ export function inQuietHours(now = new Date()): boolean {
 /**
  * Sends price alerts to every enabled channel, or queues them during quiet hours.
  * Channels are independent: one failing doesn't stop the others. Throws the first
- * failure afterwards so it can be reported.
+ * failure afterwards so it can be reported; alerts that reached no channel are queued
+ * to try again.
  */
 export async function deliverAlerts(alerts: Alert[], rate: number | null): Promise<void> {
   if (alerts.length === 0) return
-  if (inQuietHours()) {
-    setSetting('queuedAlerts', [...queued(), ...alerts])
-    return
+  if (inQuietHours()) return hold(alerts)
+  try {
+    await send(alerts, rate)
+  } catch (e) {
+    if (!wasDelivered(e)) hold(asShown(alerts))
+    throw e
   }
-  await send(alerts, rate)
 }
 
-/** Sends what was held during quiet hours, once they're over. */
+/** Sends what was held during quiet hours (or couldn't be sent before), once they're over. */
 export async function flushQueuedAlerts(rate: number | null): Promise<void> {
   const pending = queued()
   if (pending.length === 0 || inQuietHours()) return
-  await send(pending, rate)
+  try {
+    await send(pending, rate)
+  } catch (e) {
+    // Reached one channel: done, or that channel would get them again on every retry.
+    setSetting('queuedAlerts', wasDelivered(e) ? [] : asShown(pending))
+    throw e
+  }
   setSetting('queuedAlerts', [])
 }
 
 async function send(alerts: Alert[], rate: number | null): Promise<void> {
   showDesktop(alerts, rate)
-  const results = await Promise.allSettled([sendEmail(alerts, rate), sendTelegram(telegramAlerts(alerts, rate))])
-  const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-  if (failed.length) throw failed[0].reason
+  await deliver([sendEmail(alerts, rate), sendTelegram(telegramAlerts(alerts, rate))])
 }
 
 /** Returns the Resend email id so it can be looked up in the Resend dashboard. */
@@ -221,6 +261,7 @@ async function productIcon(url: string | null): Promise<Electron.NativeImage | u
 function showDesktop(alerts: Alert[], rate: number | null): void {
   if (!getSettings().desktopNotifications || !Notification.isSupported()) return
   for (const a of alerts) {
+    if (a.shown) continue
     void productIcon(a.product.image).then((icon) => {
       const n = new Notification({ title: `${tr(LABELS[a.type])} — ${a.product.title.slice(0, 50)}`, body: summary(a, rate), icon })
       n.on('click', () => openProduct(a.product.asin))

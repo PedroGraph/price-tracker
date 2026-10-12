@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, ChevronRight, ExternalLink, Flame, Loader2, Plus, LayoutGrid, Search, ShoppingBag, ShoppingCart, Star, Table2, X } from 'lucide-react'
+import { Check, ExternalLink, Eye, Flame, Loader2, Plus, LayoutGrid, Package, Search, ShoppingBag, ShoppingCart, Star, Table2, Trash2, X } from 'lucide-react'
 import type { Notify } from '../App'
 import type { DashboardStats, Product, ProductSource, RadarDeal, SaleOutlook, SearchPage, SearchParams, Status } from '@shared/types'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
-import { cleanDeal, landedTotal } from '@shared/pricing'
-import { BuySignal, ChangePill, DeliveredTotal, Sparkline, Thumb, timeAgo } from '../ui'
+import { buySignal, cleanDeal, formatCop, formatUsd, landedTotal } from '@shared/pricing'
+import { ChangePill, DeliveredTotal, SIGNAL_LABEL, Sparkline, Thumb, timeAgo } from '../ui'
 
 type Filter = 'all' | 'down' | 'up' | 'out'
 
@@ -55,7 +55,7 @@ export function Dashboard({
   onOpen: (asin: string) => void
   notify: Notify
 }) {
-  const { fmt } = useMoney()
+  const { fmt, rate, currency } = useMoney()
   const { t } = useT()
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
@@ -147,19 +147,24 @@ export function Dashboard({
       <section className="stats">
         <div className="card stat">
           <label>{t('Tracked products')}</label>
-          <div className="value plain">{stats?.tracked ?? '—'}</div>
+          <div className="value">{stats?.tracked ?? '—'}</div>
+          <small>{t('{n} in your cart', { n: active.filter((p) => p.source === 'cart').length })}</small>
         </div>
         <div className="card stat">
           <label>{t('Dropped in price')}</label>
-          <div className="value plain teal">{stats?.droppedCount ?? '—'}</div>
+          <div className="value teal">{stats?.droppedCount ?? '—'}</div>
+          <small>{t('since tracking started')}</small>
         </div>
         <div className="card stat">
           <label>{t('Saved this week')}</label>
           <div className="value teal">{stats ? fmt(stats.savedThisWeek) : '—'}</div>
+          {/* The same amount in the other currency. */}
+          <small>{stats && rate ? (currency === 'COP' ? formatUsd(stats.savedThisWeek) : formatCop(stats.savedThisWeek * rate)) : ' '}</small>
         </div>
         <div className="card stat">
-          <label>{t('Alerts sent (30 days)')}</label>
-          <div className="value plain">{stats?.alertsLast30Days ?? '—'}</div>
+          <label>{t('Alerts sent')}</label>
+          <div className="value">{stats?.alertsLast30Days ?? '—'}</div>
+          <small>{t('in the last 30 days')}</small>
         </div>
       </section>
 
@@ -189,15 +194,16 @@ export function Dashboard({
       ) : (
         <>
           <div className="filters">
-            {!showAmazon && FILTERS.map((f) => (
-              <button key={f.id} className={filter === f.id ? 'chip on' : 'chip'} onClick={() => setFilter(f.id)}>
-                {t(f.label)} · {active.filter(f.test).length}
-              </button>
-            ))}
+            {!showAmazon && (
+              <div className="chipbar">
+                {FILTERS.map((f) => (
+                  <button key={f.id} className={`chip ${f.id}${filter === f.id ? ' on' : ''}`} onClick={() => setFilter(f.id)}>
+                    {t(f.label)} · {active.filter(f.test).length}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="spacer" />
-            <button className="btn" onClick={() => setAdding(!adding)}>
-              <Plus size={15} /> {t('Add product')}
-            </button>
             <label className="search">
               <Search size={16} />
               <input
@@ -227,6 +233,9 @@ export function Dashboard({
                 </button>
               )}
             </label>
+            <button className="btn primary" onClick={() => setAdding(!adding)}>
+              <Plus size={15} /> {t('Add product')}
+            </button>
           </div>
 
           <div className="tabs">
@@ -296,11 +305,11 @@ export function Dashboard({
               <Search size={14} /> {t('Press Enter to also search “{q}” on Amazon', { q: query.trim() })}
             </p>
           )}
-          {tab === 'deals' && <DealsRadar tracked={new Set(products.map((p) => p.asin))} onTrack={(asin) => void add(asin)} />}
+          {tab === 'deals' && <DealsRadar tracked={new Set(active.map((p) => p.asin))} onTrack={(asin) => void add(asin)} />}
           {showAmazon && tab === 'amazon' && amazon && (
             <AmazonResults
               search={amazon}
-              tracked={new Set(products.map((p) => p.asin))}
+              tracked={new Set(active.map((p) => p.asin))}
               onTrack={(asin) => void add(asin)}
               onSearch={(params) => void searchAmazon(params)}
             />
@@ -315,76 +324,94 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
   const { fmt } = useMoney()
   const { t } = useT()
   const moved = movement(p)
+  // Asked once more before it stops: the first click only arms the button.
+  const [removing, setRemoving] = useState(false)
   const stock =
-    p.available === null ? (
-      <span className="stock">
-        <span className="dot" /> {t('Pending first check')}
-      </span>
-    ) : p.available === false ? (
-      <span className="stock out">
-        <span className="dot" /> {t('Out of stock')}
-      </span>
-    ) : p.backInStock ? (
-      <span className="stock back">
-        <span className="dot" /> {t('Back in stock')}
-      </span>
-    ) : (
-      <span className="stock in">
-        <span className="dot" /> {t('In stock')}
-      </span>
-    )
+    p.available === null
+      ? { tone: '', label: 'Pending first check' }
+      : p.available === false
+        ? { tone: 'out', label: 'Out of stock' }
+        : p.backInStock
+          ? { tone: 'back', label: 'Back in stock' }
+          : { tone: 'in', label: 'In stock' }
+  const verdict = buySignal({ current: p.lastPrice, avg: p.avg30, min: p.lowest30, runs: p.runs30, spanDays: p.spanDays30 })
+  // Where today's price sits between the lowest and highest of the recent checks.
+  const [low, high] = [Math.min(...p.spark), Math.max(...p.spark)]
+  const position = p.spark.length < 2 ? null : high === low ? 50 : Math.min(96, Math.max(4, ((p.spark.at(-1)! - low) / (high - low)) * 100))
 
   return (
-    <article className="card pcard">
-      <div className="head">
-        <Thumb src={p.image} />
-        <div>
-          <h4 title={p.title}>{p.title}</h4>
-          {stock}
-          <ProductFacts product={p} />
-          {p.tags.length > 0 && (
-            <div className="card-tags">
-              {p.tags.map((tag) => (
-                <span key={tag} className="tag">
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="badges">
-          {p.targetPrice !== null && p.lastPrice !== null && p.lastPrice <= p.targetPrice && (
-            <span className="badge good">{t('Target reached')}</span>
-          )}
+    <article className="card pc">
+      <div className="pc-img">
+        {p.image ? <img src={p.image} alt="" /> : <Package size={26} strokeWidth={1.5} />}
+        <div className="pc-badges">
+          {p.targetPrice !== null && p.lastPrice !== null && p.lastPrice <= p.targetPrice && <span className="badge good">{t('Target reached')}</span>}
           {/* Only after an actual drop; an unchanged price is trivially the lowest. */}
-          {p.lowestPrice !== null && p.lastPrice !== null && p.firstPrice !== null &&
-            p.lastPrice <= p.lowestPrice && p.lastPrice < p.firstPrice && (
+          {p.lowestPrice !== null && p.lastPrice !== null && p.firstPrice !== null && p.lastPrice <= p.lowestPrice && p.lastPrice < p.firstPrice && (
             <span className="badge good">{t('Lowest ever')}</span>
           )}
           {cleanDeal(p.deal) && <span className="badge deal">{cleanDeal(p.deal)}</span>}
-          {p.coupon && <span className="badge good">{t('Coupon')}</span>}
+          {p.coupon && <span className="badge deal">{t('Coupon')}</span>}
           {p.sellerCount > 1 && <span className="badge">{t('{n} sellers', { n: p.sellerCount })}</span>}
         </div>
       </div>
-      <div className="priceline">
-        {p.lastPrice === null && p.available === false ? (
-          <span className="no-price">{t('No price while out of stock')}</span>
-        ) : (
-          <span className="big">{fmt(p.lastPrice)}</span>
+      <div className="pc-body">
+        <h4 className="pc-title" title={p.title}>
+          {p.title}
+        </h4>
+        <div className="pc-meta">
+          <ProductFacts product={p} />
+          <span className={`stock-pill ${stock.tone}`}>{t(stock.label)}</span>
+        </div>
+        <div className="pc-price">
+          {p.lastPrice === null && p.available === false ? (
+            <span className="no-price">{t('No price while out of stock')}</span>
+          ) : (
+            <span className="big">{fmt(p.lastPrice)}</span>
+          )}
+          {moved !== null && moved !== 0 && <span className="was">{fmt(p.firstPrice)}</span>}
+          <ChangePill from={p.firstPrice} to={p.lastPrice} />
+        </div>
+        {(p.lastShipping || p.lastImportFees) && (
+          <div className="pc-extra">
+            {p.lastShipping ? <span>{t('+ {amount} shipping', { amount: fmt(p.lastShipping) })}</span> : null}
+            {p.lastImportFees ? <span>{t('+ {amount} import fees', { amount: fmt(p.lastImportFees) })}</span> : null}
+          </div>
         )}
-        {moved !== null && moved !== 0 && <span className="was">{fmt(p.firstPrice)}</span>}
-        <ChangePill from={p.firstPrice} to={p.lastPrice} />
-        <BuySignal product={p} />
-        {p.lastShipping ? <span className="ship">{t('+ {amount} shipping', { amount: fmt(p.lastShipping) })}</span> : null}
-        {p.lastImportFees ? <span className="ship">{t('+ {amount} import fees', { amount: fmt(p.lastImportFees) })}</span> : null}
-      </div>
-      <DeliveredTotal product={p} />
-      <div className="foot">
-        <Sparkline values={p.spark} />
-        <span className="when">{timeAgo(p.lastCheckedAt, t)}</span>
-        <button className="btn" onClick={onOpen}>
-          {t('View details')} <ChevronRight size={15} />
-        </button>
+        <DeliveredTotal product={p} />
+        {p.tags.length > 0 && (
+          <div className="card-tags">
+            {p.tags.map((tag) => (
+              <span key={tag} className="tag">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+        {position !== null && (
+          <div className={`gauge ${verdict}`} title={t('Compared with the last 30 days')}>
+            <Sparkline values={p.spark} height={30} fluid />
+            <div className="gauge-track">
+              <i style={{ width: `${position}%` }} />
+              <b style={{ left: `${position}%` }} />
+            </div>
+            {verdict !== 'unknown' && <span className="gauge-label">{t(SIGNAL_LABEL[verdict])}</span>}
+          </div>
+        )}
+        <div className="pc-foot">
+          <span className="when">{timeAgo(p.lastCheckedAt, t)}</span>
+          {removing ? (
+            <button className="btn small bad-text" autoFocus onBlur={() => setRemoving(false)} onClick={() => void window.api.removeProduct(p.asin)}>
+              {t('Stop tracking?')}
+            </button>
+          ) : (
+            <button className="trash" title={t('Stop tracking')} aria-label={t('Stop tracking')} onClick={() => setRemoving(true)}>
+              <Trash2 size={13} />
+            </button>
+          )}
+          <button className="btn" onClick={onOpen}>
+            <Eye size={12} /> {t('View details')}
+          </button>
+        </div>
       </div>
     </article>
   )

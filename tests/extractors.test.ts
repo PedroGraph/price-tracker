@@ -99,6 +99,17 @@ describe('promotions (synthetic markup)', () => {
     expect(extractProduct().importFeesText).toBe('US$98.40 Import Fees Deposit to Colombia')
   })
 
+  it('finds "cannot be shipped" outside the availability block, past the scripts inside it', () => {
+    document.body.innerHTML = `${account}
+      <div id="availability"><script>P.when("A").execute(function () { var unavailable = 'currently unavailable' })</script></div>
+      <div id="outOfStock">No puede enviarse este producto al punto de entrega seleccionado.</div>`
+    const p = extractProduct()
+    expect(p.availabilityText).toBe('No puede enviarse este producto al punto de entrega seleccionado.')
+    expect(isUnavailable(p.availabilityText)).toBe(true)
+    document.body.innerHTML = `${account}<div id="availability"><script>var x = 'out of stock'</script><span>In Stock</span></div>`
+    expect(isUnavailable(extractProduct().availabilityText)).toBe(false)
+  })
+
   it('ignores promo blocks that are not coupons or deals', () => {
     document.body.innerHTML = `${account}<div id="promoPriceBlockMessage_feature_div">Get 5% back with Prime Visa</div>`
     const p = extractProduct()

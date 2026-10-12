@@ -108,7 +108,7 @@ export function Notifications({
   return (
     <div className="notif" ref={box}>
       <button className="icon-btn" onClick={toggle} aria-label={t('Notifications')} title={t('Notifications')}>
-        <Bell size={18} />
+        <Bell size={16} />
         {badge > 0 && <span className="notif-count">{badge > 9 ? '9+' : badge}</span>}
       </button>
       {open && (

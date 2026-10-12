@@ -98,6 +98,13 @@ export function extractProduct(): RawProduct {
     }
     return null
   }
+  // The text a person sees: without the scripts and styles Amazon leaves inside these blocks.
+  const shown = (el: Element | null): string | null => {
+    if (!el) return null
+    const copy = el.cloneNode(true) as Element
+    copy.querySelectorAll('script, style, noscript').forEach((n) => n.remove())
+    return text(copy)
+  }
   // Signed in, the account menu isn't always a link, so read the attribute instead of `.href`.
   const account = document.querySelector('#nav-link-accountList')
   const accountHref = account?.getAttribute('href') ?? ''
@@ -140,7 +147,13 @@ export function extractProduct(): RawProduct {
       '#priceblock_ourprice',
       '#priceblock_dealprice'
     ]),
-    availabilityText: first(['#availability', '#outOfStock', '#availability_feature_div']),
+    // Every block that can say it: "can't be shipped to your address" shows up in #outOfStock while
+    // #availability holds only a script, so the first non-empty one isn't enough.
+    availabilityText:
+      ['#availability', '#outOfStock', '#availability_feature_div']
+        .map((s) => shown(document.querySelector(s)))
+        .filter(Boolean)
+        .join(' · ') || null,
     shippingText: delivery?.getAttribute('data-csa-c-delivery-price') ?? null,
     seller: first([
       '#merchantInfoFeature_feature_div .offer-display-feature-text-message',

@@ -106,3 +106,36 @@ export function volatility(prices: number[]): number {
   const variance = prices.reduce((s, p) => s + (p - mean) ** 2, 0) / prices.length
   return mean ? Math.round((Math.sqrt(variance) / mean) * 1000) / 10 : 0
 }
+
+/** One cell of the "best moment to buy" map. */
+export interface HeatCell {
+  /** How far under (positive) or over (negative) each product's own average the price was, in percent; null with too few readings. */
+  pct: number | null
+  n: number
+}
+
+/** Readings a cell needs before it says anything. */
+const MIN_CELL_READINGS = 3
+
+/**
+ * When prices tend to be lowest: every reading compared with its own product's average,
+ * grouped by part of the day (rows: morning 5–12, afternoon 12–19, night) and weekday
+ * (columns: Monday to Sunday), in local time. Products with too little history are left out.
+ */
+export function priceHeatmap(series: PricePoint[][]): HeatCell[][] {
+  const cells = Array.from({ length: 3 }, () => Array.from({ length: 7 }, () => ({ total: 0, n: 0 })))
+  for (const points of series) {
+    if (points.length < 8) continue
+    const mean = points.reduce((s, p) => s + p.price, 0) / points.length
+    if (!(mean > 0)) continue
+    for (const p of points) {
+      const d = new Date(p.at)
+      const hour = d.getHours()
+      const row = hour >= 5 && hour < 12 ? 0 : hour >= 12 && hour < 19 ? 1 : 2
+      const cell = cells[row][(d.getDay() + 6) % 7]
+      cell.total += ((mean - p.price) / mean) * 100
+      cell.n++
+    }
+  }
+  return cells.map((row) => row.map((c) => ({ pct: c.n >= MIN_CELL_READINGS ? Math.round((c.total / c.n) * 100) / 100 : null, n: c.n })))
+}

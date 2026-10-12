@@ -7,6 +7,7 @@ import type { SearchParams, Settings, Threshold } from '@shared/types'
 import { searchUrl } from '@shared/urls'
 import { cleanShipment } from '@shared/shipping'
 import { newsSince } from '@shared/whatsNew'
+import { priceHeatmap } from '@shared/insights'
 import { refreshShipments } from './shipments'
 import { connectStore, disconnectStore, linkedStores, syncStores } from './accounts'
 import { dismissSuggestion, listSuggestions, refreshSuggestions } from './suggestions'
@@ -69,7 +70,7 @@ function showWindow(): void {
 
 /** Window buttons (minimize, maximize, close) in the app's colors. */
 function overlayColors(dark: boolean): Electron.TitleBarOverlayOptions {
-  return dark ? { color: '#121412', symbolColor: '#ecebe6', height: 40 } : { color: '#f5f4f0', symbolColor: '#1c1c1a', height: 40 }
+  return dark ? { color: '#151a18', symbolColor: '#e2e0da', height: 52 } : { color: '#f6f5f2', symbolColor: '#1a1c19', height: 52 }
 }
 
 function createWindow(): void {
@@ -80,7 +81,7 @@ function createWindow(): void {
     minHeight: 560,
     show: false,
     // Paint the app's background right away instead of a white window while the page loads.
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#121412' : '#f5f4f0',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0c1110' : '#e8e7e3',
     title: 'Price Tracker',
     icon: resourceImage('icon.png') ?? undefined,
     // No Windows title bar: the app's own header is the bar, with the window buttons drawn over it.
@@ -335,9 +336,10 @@ function registerIpc(): void {
   handle('stores:mlLogin', () => openMercadoLibreLogin(win ?? undefined))
   handle('sales:outlook', () => saleOutlook())
   handle('stats:products', () => db.productStats())
+  handle('stats:heatmap', () => priceHeatmap(db.listProducts(true).map((p) => db.priceSeries(p.asin))))
   handle('stats:series', (_e, asins: unknown) =>
     Array.isArray(asins)
-      ? asins.filter((a): a is string => typeof a === 'string').slice(0, 5).map((asin) => ({ asin, points: db.priceSeries(asin) }))
+      ? asins.filter((a): a is string => typeof a === 'string').slice(0, 4).map((asin) => ({ asin, points: db.priceSeries(asin) }))
       : []
   )
   handle('suggestions:list', () => listSuggestions())
@@ -396,7 +398,9 @@ function registerIpc(): void {
 
 
 // Windows shows notifications under this id; it matches the Start menu shortcut the installer creates.
-if (process.platform === 'win32') app.setAppUserModelId('com.local.amazonpricetracker')
+// A development run gets its own id: with the same one, Windows puts both under one taskbar
+// button and shows Electron's icon for it instead of the app's.
+if (process.platform === 'win32') app.setAppUserModelId(app.isPackaged ? 'com.local.amazonpricetracker' : 'com.local.amazonpricetracker.dev')
 
 app.whenReady().then(async () => {
   mark('ready')

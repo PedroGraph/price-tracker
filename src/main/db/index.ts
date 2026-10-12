@@ -103,7 +103,8 @@ const MIGRATIONS = [
      state TEXT NOT NULL,
      detail TEXT,
      created_at TEXT NOT NULL
-   );`
+   );`,
+  `ALTER TABLE products ADD COLUMN ignored INTEGER NOT NULL DEFAULT 0;`
 ]
 
 export function openDb(file = join(app.getPath('userData'), 'tracker.db')): void {
@@ -297,7 +298,8 @@ const SOURCE_RANK: Record<ProductSource, number> = { cart: 0, saved: 1, wishlist
  * and wishlists are added (an item in several places takes the first of cart > saved >
  * wishlist), and products that were only there stop being tracked. Sources in `keep` weren't
  * read this time (off, or couldn't be loaded), so their products are left as they are.
- * Products added by link ('manual') are never touched.
+ * Products added by link ('manual') are never touched, and neither are the ones you stopped
+ * tracking yourself: they stay off even while they're still in the cart.
  */
 export function syncSources(
   items: { asin: string; title: string; url: string; image: string | null; source: Exclude<ProductSource, 'manual'> }[],
@@ -312,7 +314,7 @@ export function syncSources(
     const upsert = db.prepare(
       `INSERT INTO products (asin, title, url, image, active, source, added_at) VALUES (@asin, @title, @url, @image, 1, @source, @now)
        ON CONFLICT(asin) DO UPDATE SET title = CASE WHEN @title = @asin THEN title ELSE @title END, url = @url,
-         image = CASE WHEN @image IS NULL THEN image ELSE @image END, active = 1,
+         image = CASE WHEN @image IS NULL THEN image ELSE @image END, active = CASE WHEN ignored = 1 THEN active ELSE 1 END,
          source = CASE WHEN source = 'manual' AND active = 1 THEN 'manual' ELSE @source END`
     )
     for (const { asin, title, url, image, source } of best.values()) upsert.run({ asin, title, url, image, source, now: now() })
@@ -348,7 +350,7 @@ export function updateProductState(
 export function addManualProduct(asin: string): void {
   db.prepare(
     `INSERT INTO products (asin, title, url, active, source, added_at) VALUES (?, ?, ?, 1, 'manual', ?)
-     ON CONFLICT(asin) DO UPDATE SET active = 1, source = CASE WHEN active = 1 THEN source ELSE 'manual' END`
+     ON CONFLICT(asin) DO UPDATE SET active = 1, ignored = 0, source = CASE WHEN active = 1 THEN source ELSE 'manual' END`
   ).run(asin, asin, `https://www.amazon.com/dp/${asin}`, now())
 }
 
@@ -362,9 +364,12 @@ export function rebaseAll(total: boolean): void {
   ).run()
 }
 
-/** Stops tracking a product; its history is kept. */
+/**
+ * Stops tracking a product; its history is kept. It's remembered as your choice, so finding
+ * it again in the cart or a wishlist doesn't bring it back; adding it by link does.
+ */
 export function deactivateProduct(asin: string): void {
-  db.prepare('UPDATE products SET active = 0 WHERE asin = ?').run(asin)
+  db.prepare('UPDATE products SET active = 0, ignored = 1 WHERE asin = ?').run(asin)
 }
 
 /** First tracked price (cheapest reading of a check) at or after `since`. */

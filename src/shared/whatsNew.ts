@@ -9,6 +9,27 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    version: '1.4.0',
+    notes: {
+      en: [
+        'A new look for the whole app, and the pages (Dashboard, Shipments, Statistics, Settings) are now in the top bar.',
+        'Product cards show at a glance where today’s price sits against the recent ones.',
+        'Statistics: a full-width price chart for up to four products, and a new map of when your products tend to be cheapest.',
+        'Shipments: each one unfolds into its five steps, with what the carrier says and its history of movements.',
+        'Any product can be removed, from its card or its page, and it stays removed even while it’s still in your cart.',
+        'Products that Amazon can’t ship to your address are now marked out of stock instead of going unread.'
+      ],
+      es: [
+        'Nueva apariencia para toda la app, y las páginas (Dashboard, Envíos, Estadísticas, Configuración) ahora están en la barra superior.',
+        'Las tarjetas de producto muestran de un vistazo dónde está el precio de hoy frente a los recientes.',
+        'Estadísticas: una gráfica de precios a todo el ancho para hasta cuatro productos, y un mapa nuevo de cuándo suelen estar más baratos.',
+        'Envíos: cada uno se despliega en sus cinco pasos, con lo que dice la transportadora y su historial de movimientos.',
+        'Cualquier producto se puede quitar, desde su tarjeta o su página, y se queda quitado aunque siga en tu carrito.',
+        'Los productos que Amazon no puede enviar a tu dirección ahora se marcan sin stock en vez de quedarse sin leer.'
+      ]
+    }
+  },
+  {
     version: '1.3.0',
     notes: {
       en: [

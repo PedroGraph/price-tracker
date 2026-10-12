@@ -153,12 +153,12 @@ export function ProductDetail({
               <a href={product.url} target="_blank" rel="noreferrer">
                 {t('Open on Amazon')} <ArrowUpRight size={14} />
               </a>
-              {product.source === 'manual' && (
+              {product.active && (
                 <button
-                  className="btn link"
+                  className="btn small"
                   onClick={() =>
                     void window.api.removeProduct(product.asin).then(() => {
-                      notify(t('Stopped tracking. The price history is kept.'))
+                      notify(t(product.source === 'manual' ? 'Stopped tracking. The price history is kept.' : 'Stopped tracking. It stays off even while it is on Amazon; add it by link to track it again.'))
                       onRemoved()
                     })
                   }

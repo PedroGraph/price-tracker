@@ -30,6 +30,17 @@ describe('syncSources', () => {
     expect(active()).toEqual({ A000000001: 'cart', A000000003: 'wishlist' })
   })
 
+  it('keeps off what you stopped tracking, until you add it again', () => {
+    db.syncSources([item('A000000001', 'cart'), item('A000000002', 'cart')])
+    db.deactivateProduct('A000000001')
+    db.syncSources([item('A000000001', 'cart'), item('A000000002', 'cart')])
+    expect(active()).toEqual({ A000000002: 'cart' })
+
+    db.addManualProduct('A000000001')
+    db.syncSources([item('A000000001', 'cart'), item('A000000002', 'cart')])
+    expect(Object.keys(active()).sort()).toEqual(['A000000001', 'A000000002'])
+  })
+
   it('never touches products added by link', () => {
     db.addManualProduct('A000000009')
     db.syncSources([])

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { BackupInfo } from '../main/backup'
 import type { WhatsNewEntry } from '@shared/whatsNew'
+import type { HeatCell } from '@shared/insights'
 import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Suggestion, AlertItem, SaleOutlook, ProductStats, ReviewsInfo, Purchase, Trm, Comparison, RadarDeal, LinkedStore, Shipment, ShipmentInput, ShipmentNotice, Status, Threshold, TrackerEvent } from '@shared/types'
 
 /** The only surface the UI can reach. Each method maps to one IPC channel. */
@@ -58,6 +59,7 @@ const api = {
   connectMercadoLibre: (): Promise<void> => ipcRenderer.invoke('stores:mlLogin'),
   saleOutlook: (): Promise<SaleOutlook | null> => ipcRenderer.invoke('sales:outlook'),
   productStats: (): Promise<ProductStats[]> => ipcRenderer.invoke('stats:products'),
+  priceHeatmap: (): Promise<HeatCell[][]> => ipcRenderer.invoke('stats:heatmap'),
   priceSeries: (asins: string[]): Promise<{ asin: string; points: { at: string; price: number }[] }[]> =>
     ipcRenderer.invoke('stats:series', asins),
   listAlerts: (): Promise<{ alerts: AlertItem[]; shipments: ShipmentNotice[]; seenAt: string | null }> => ipcRenderer.invoke('notifications:list'),

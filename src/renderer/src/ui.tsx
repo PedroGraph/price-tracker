@@ -47,8 +47,12 @@ export function ChangePill({ from, to, suffix }: { from: number | null; to: numb
   )
 }
 
-export function Sparkline({ values, width = 124, height = 40 }: { values: number[]; width?: number; height?: number }) {
-  const w = width
+/**
+ * A small line of recent prices. `fluid` stretches it to the width it's given and fills the
+ * area under the line, for cards; otherwise it's a fixed size with a dot on the last price.
+ */
+export function Sparkline({ values, width = 124, height = 40, fluid }: { values: number[]; width?: number; height?: number; fluid?: boolean }) {
+  const w = fluid ? 80 : width
   const h = height
   if (values.length < 2) return <svg width={w} height={h} />
   const min = Math.min(...values)
@@ -58,6 +62,15 @@ export function Sparkline({ values, width = 124, height = 40 }: { values: number
   const trend = values.at(-1)! - values[0]
   const color = trend < 0 ? 'var(--teal)' : trend > 0 ? 'var(--amber)' : 'var(--faint)'
   const [lx, ly] = pts.at(-1)!
+  if (fluid) {
+    const line = pts.map((p) => p.join(',')).join(' L')
+    return (
+      <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden>
+        <path d={`M${line} L${w - 3},${h} L3,${h}Z`} fill={color} opacity={0.12} />
+        <path d={`M${line}`} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+    )
+  }
   return (
     <svg width={w} height={h} aria-hidden>
       <polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
@@ -94,7 +107,7 @@ export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boo
   )
 }
 
-const SIGNAL_LABEL = { low: 'Low price', normal: 'Normal price', high: 'High price', unknown: 'Not enough data' } as const
+export const SIGNAL_LABEL = { low: 'Low price', normal: 'Normal price', high: 'High price', unknown: 'Not enough data' } as const
 
 /** "Low / normal / high price" compared with the last 30 days. */
 export function BuySignal({ product, detailed }: { product: Product; detailed?: boolean }) {

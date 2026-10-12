@@ -298,7 +298,7 @@ const text = (v: unknown, max: number): string => (typeof v === 'string' ? v.tri
 
 /**
  * Checks and tidies what the form sends. Null when something required is missing: the
- * name, the store, or the carrier of a shipment that comes through a forwarder.
+ * name, or the carrier of a shipment that comes through a forwarder.
  */
 export function cleanShipment(input: unknown): ShipmentInput | null {
   if (!input || typeof input !== 'object') return null
@@ -311,6 +311,6 @@ export function cleanShipment(input: unknown): ShipmentInput | null {
   const tracking = text(x.tracking, 80).replace(/[^A-Za-z0-9]/g, '').toUpperCase() || null
   const status = SHIPMENT_STATUSES.find((s) => s === x.status)
   const asin = typeof x.asin === 'string' && /^[A-Z0-9]{10}$/.test(x.asin) ? x.asin : null
-  if (!title || !store || !status || (forwarder && !carrier)) return null
+  if (!title || !status || (forwarder && !carrier)) return null
   return { asin, title, store, forwarder, carrier, tracking, status }
 }

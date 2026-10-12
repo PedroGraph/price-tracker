@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { priceInsights, volatility } from '../src/shared/insights'
+import { priceHeatmap, priceInsights, volatility } from '../src/shared/insights'
 
 const DAY = 86_400_000
 const now = Date.parse('2026-09-28T12:00:00Z')
@@ -45,5 +45,28 @@ describe('volatility', () => {
   it('is zero for a flat price and grows with swings', () => {
     expect(volatility([10, 10, 10])).toBe(0)
     expect(volatility([90, 110])).toBe(10)
+  })
+})
+
+describe('priceHeatmap', () => {
+  // Local times: Monday 5 Jan 2026 at 9:00 is row 0 (morning), column 0 (Monday).
+  const at2 = (day: number, hour: number): string => new Date(2026, 0, day, hour).toISOString()
+
+  it('shows when a product is under its own average', () => {
+    // Three weeks: 100 every afternoon, 80 on two Monday mornings, and a single Wednesday morning.
+    const points = Array.from({ length: 21 }, (_, i) => ({ price: 100, at: at2(5 + i, 15) }))
+    points.push({ price: 100, at: at2(7, 9) })
+    const cheap = [5, 5, 12, 12].map((d, i) => ({ price: 80, at: at2(d, 8 + (i % 2)) }))
+    const map = priceHeatmap([[...points, ...cheap]])
+    expect(map[0][0].n).toBe(4)
+    expect(map[0][0].pct).toBeGreaterThan(10)
+    expect(map[1][1].pct).toBeLessThan(0)
+    // Nothing was read at night, and a single reading isn't enough to say.
+    expect(map[2][3]).toEqual({ pct: null, n: 0 })
+    expect(map[0][2]).toEqual({ pct: null, n: 1 })
+  })
+
+  it('leaves out products with little history', () => {
+    expect(priceHeatmap([[{ price: 10, at: at2(5, 9) }]]).flat().every((c) => c.n === 0)).toBe(true)
   })
 })

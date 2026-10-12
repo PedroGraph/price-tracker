@@ -15,9 +15,9 @@ describe('cleanShipment', () => {
     })
   })
 
-  it('needs a name, a store and a known status', () => {
+  it('needs a name and a known status; the store is optional', () => {
     expect(cleanShipment({ ...base, title: ' ' })).toBeNull()
-    expect(cleanShipment({ ...base, store: '' })).toBeNull()
+    expect(cleanShipment({ ...base, store: '' })?.store).toBe('')
     expect(cleanShipment({ ...base, status: 'lost' })).toBeNull()
     expect(cleanShipment(null)).toBeNull()
   })

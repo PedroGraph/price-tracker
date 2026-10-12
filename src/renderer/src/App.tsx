@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Notifications } from './Notifications'
-import { ChartColumn, ChevronLeft, Moon, RefreshCw, Settings as Gear, Sparkles, Sun, TrendingUp, Truck } from 'lucide-react'
+import { ChartColumn, ChevronLeft, LayoutGrid, Moon, RefreshCw, Settings as Gear, Sparkles, Sun, TrendingUp, Truck } from 'lucide-react'
 import { WHATS_NEW, type WhatsNewEntry } from '@shared/whatsNew'
 import type { DashboardStats, Product, Settings, Status } from '@shared/types'
 import { LangContext, useT } from './i18n'
@@ -13,8 +13,16 @@ const StatsView = lazy(() => import('./views/Stats').then((m) => ({ default: m.S
 const ShipmentsView = lazy(() => import('./views/Shipments').then((m) => ({ default: m.ShipmentsView })))
 const SettingsView = lazy(() => import('./views/Settings').then((m) => ({ default: m.SettingsView })))
 
-type View = { name: 'dashboard' } | { name: 'product'; asin: string } | { name: 'settings' } | { name: 'stats' } | { name: 'shipments' }
+type View = { name: 'dashboard' | 'settings' | 'stats' | 'shipments' } | { name: 'product'; asin: string }
 type Theme = 'light' | 'dark'
+
+// The pages in the top bar. Labels are English keys, translated where shown.
+const NAV = [
+  { name: 'dashboard', label: 'Dashboard', Icon: LayoutGrid },
+  { name: 'shipments', label: 'Shipments', Icon: Truck },
+  { name: 'stats', label: 'Statistics', Icon: ChartColumn },
+  { name: 'settings', label: 'Settings', Icon: Gear }
+] as const
 export type Notify = (text: string, error?: boolean) => void
 
 // Per-viewer conveniences only; the app works without storage.
@@ -148,79 +156,63 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
 
   const rate = status?.exchangeRate?.rate ?? null
   const signedOut = status?.session === 'logged_out' || status?.session === 'captcha'
-  const themeButton = (
-    <button className="icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={t('Toggle theme')}>
-      {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-    </button>
-  )
-  const back = (
-    <button className="btn" onClick={() => setView({ name: 'dashboard' })}>
-      <ChevronLeft size={16} /> {t('Dashboard')}
-    </button>
-  )
 
   return (
     <MoneyContext.Provider value={{ currency, rate, setCurrency }}>
       <header className="topbar">
-        {view.name === 'dashboard' ? (
-          <>
-            <div className="brand">
-              <div className="logo">
-                <TrendingUp size={22} />
-              </div>
-              <div>
-                <h1>{t('Price Tracker')}</h1>
-                {signedOut ? (
-                  <p className="warn">{t('Not connected to Amazon')}</p>
-                ) : (
-                  <p>{t('Connected to your Amazon cart · runs in the tray')}</p>
-                )}
-              </div>
-            </div>
-            <div className="spacer" />
-            <div className="sync">
-              <button onClick={() => void window.api.runNow()} disabled={status?.running} title={t('Check now')}>
-                <RefreshCw size={15} className={status?.running ? 'spin' : ''} />
-                {status?.running ? t('Checking…') : t('Updated {when}', { when: timeAgo(status?.lastRunAt ?? null, t) })}
-              </button>
-              <span className="sep" />
-              <span>{t('Next check in {time}', { time: timeUntil(status?.nextRunAt ?? null) })}</span>
-            </div>
-            <Notifications
-              status={status}
-              onOpen={(asin) => setView({ name: 'product', asin })}
-              onOpenShipments={() => setView({ name: 'shipments' })}
-              onTrack={async (asin) => {
-                try {
-                  await window.api.addProduct(asin)
-                  notify(t('Tracking {asin}. Its price appears after this check.', { asin }))
-                } catch (e) {
-                  notify(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e), true)
-                  throw e
-                }
-              }}
-            />
-            <button className="icon-btn" onClick={() => setView({ name: 'shipments' })} aria-label={t('Shipments')} title={t('Shipments')}>
-              <Truck size={18} />
+        <div className="brand">
+          <div className="logo">
+            <TrendingUp size={16} />
+          </div>
+          <h1>{t('Price Tracker')}</h1>
+        </div>
+        <div className="spacer" />
+        <nav className="topnav">
+          {NAV.map(({ name, label, Icon }) => (
+            <button
+              key={name}
+              // A product's page belongs to the dashboard.
+              className={view.name === name || (name === 'dashboard' && view.name === 'product') ? 'nav-btn on' : 'nav-btn'}
+              aria-current={view.name === name ? 'page' : undefined}
+              title={t(label)}
+              onClick={() => setView({ name })}
+            >
+              <Icon size={14} /> <span>{t(label)}</span>
             </button>
-            <button className="icon-btn" onClick={() => setView({ name: 'stats' })} aria-label={t('Statistics')} title={t('Statistics')}>
-              <ChartColumn size={18} />
-            </button>
-            {themeButton}
-            <button className="icon-btn" onClick={() => setView({ name: 'settings' })} aria-label={t('Settings')}>
-              <Gear size={18} />
-            </button>
-          </>
-        ) : (
-          <>
-            {back}
-            <span className={view.name === 'product' ? 'crumb' : 'crumb strong'}>
-              {view.name === 'settings' ? t('Settings') : view.name === 'stats' ? t('Statistics') : view.name === 'shipments' ? t('Shipments') : t('Product details')}
-            </span>
-            <div className="spacer" />
-            {themeButton}
-          </>
-        )}
+          ))}
+        </nav>
+        <div className="top-actions">
+          <button
+            className="icon-btn"
+            onClick={() => void window.api.runNow()}
+            disabled={status?.running}
+            aria-label={t('Check now')}
+            title={
+              status?.running
+                ? t('Checking…')
+                : `${t('Check now')} · ${t('Updated {when}', { when: timeAgo(status?.lastRunAt ?? null, t) })} · ${t('Next check in {time}', { time: timeUntil(status?.nextRunAt ?? null) })}`
+            }
+          >
+            <RefreshCw size={16} className={status?.running ? 'spin' : ''} />
+          </button>
+          <Notifications
+            status={status}
+            onOpen={(asin) => setView({ name: 'product', asin })}
+            onOpenShipments={() => setView({ name: 'shipments' })}
+            onTrack={async (asin) => {
+              try {
+                await window.api.addProduct(asin)
+                notify(t('Tracking {asin}. Its price appears after this check.', { asin }))
+              } catch (e) {
+                notify(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e), true)
+                throw e
+              }
+            }}
+          />
+          <button className="icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={t('Toggle theme')} title={t('Toggle theme')}>
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+        </div>
       </header>
 
       {signedOut && (
@@ -259,6 +251,11 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
             onOpen={(asin) => setView({ name: 'product', asin })}
             notify={notify}
           />
+        )}
+        {view.name === 'product' && (
+          <button className="backlink" onClick={() => setView({ name: 'dashboard' })}>
+            <ChevronLeft size={15} /> {t('Dashboard')}
+          </button>
         )}
         {view.name === 'product' && settings && (
           <ProductDetail

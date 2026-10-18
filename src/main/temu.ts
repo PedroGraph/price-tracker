@@ -1,4 +1,4 @@
-import { parseTemuOrders, parseTemuTrack } from '@shared/shipping'
+import { parseTemuOrders, parseTemuTrack, temuStateFromTrack } from '@shared/shipping'
 import type { ShipmentTracking } from '@shared/types'
 import type { ReadResult, StoreReader } from './accounts'
 import { capture, hiddenStoreWindow, openStoreLogin, storeSession, type StoreSite } from './storeWindow'
@@ -24,8 +24,18 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 
 /** Runs in Temu's tracking page: the movements it was served with. Self-contained, like the Amazon extractors. */
 const TRACK_NODES = `(() => {
-  const list = window.rawData?.store?.logisticsTrackInfo?.trackNodeVOList
-  return Array.isArray(list) ? list.map((n) => ({ operatorTimeStr: n.operatorTimeStr, trackDesc: n.trackDesc, status: n.status })) : null
+  const raw = window.rawData
+  const list = raw?.store?.logisticsTrackInfo?.trackNodeVOList ?? raw?.logisticsTrackInfo?.trackNodeVOList ?? raw?.data?.logisticsTrackInfo?.trackNodeVOList
+  if (Array.isArray(list)) return list
+  // Some Temu versions render the latest carrier state in the page but do not
+  // expose it through rawData. Keep only tracking-like lines to avoid storing
+  // addresses, product descriptions or other page text as movements.
+  const lines = (document.body.innerText || '')
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter((s) => /entregad|delivered|aduan|customs|reparto|out for delivery|en tránsito|in transit|enviado|shipped/i.test(s))
+    .slice(0, 60)
+  return lines.length ? lines.map((trackDesc) => ({ trackDesc })) : null
 })()`
 
 /** A package's movements from its tracking page, after a pause like a person's. Null when they can't be read. */
@@ -60,6 +70,13 @@ async function read(wantsHistory: Parameters<StoreReader['read']>[0]): Promise<R
       if (!p.trackPage || pagesRead >= MAX_TRACK_PAGES || !wantsHistory(p)) continue
       pagesRead++
       p.events = await readTrack(win, p.trackPage)
+      if (p.events) {
+        const current = temuStateFromTrack(p.events)
+        if (current) {
+          p.state = current.state
+          p.delivered = current.delivered
+        }
+      }
     }
     return { kind: 'ok', packages }
   } finally {

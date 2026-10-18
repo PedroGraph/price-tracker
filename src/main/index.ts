@@ -33,6 +33,8 @@ import { resolveAsin } from './resolveAsin'
 import { events, runCheck, schedule, status } from './tracker'
 import { checkForUpdates, initUpdater, installUpdate, update } from './updater'
 
+const APP_ID = 'com.local.amazonpricetracker'
+
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
 let quitting = false
@@ -83,7 +85,7 @@ function createWindow(): void {
     // Paint the app's background right away instead of a white window while the page loads.
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0c1110' : '#e8e7e3',
     title: 'Price Tracker',
-    icon: resourceImage('icon.png') ?? undefined,
+    icon: resourceImage('icon.png') ?? resourceImage('icon.ico') ?? undefined,
     // No Windows title bar: the app's own header is the bar, with the window buttons drawn over it.
     titleBarStyle: 'hidden',
     titleBarOverlay: overlayColors(nativeTheme.shouldUseDarkColors),
@@ -96,6 +98,9 @@ function createWindow(): void {
       devTools: !app.isPackaged
     }
   })
+  // Keep Windows from grouping the window under Electron's default identity/icon.
+  const appIcon = resourceImage('icon.png') ?? resourceImage('icon.ico')
+  if (appIcon) win.setIcon(appIcon)
   // Stay in the tray when started with --hidden (Windows start-up) or after a background update.
   const relaunchHidden = db.getSetting<boolean>('relaunchHidden', false)
   if (relaunchHidden) db.setSetting('relaunchHidden', false)
@@ -400,7 +405,7 @@ function registerIpc(): void {
 // Windows shows notifications under this id; it matches the Start menu shortcut the installer creates.
 // A development run gets its own id: with the same one, Windows puts both under one taskbar
 // button and shows Electron's icon for it instead of the app's.
-if (process.platform === 'win32') app.setAppUserModelId(app.isPackaged ? 'com.local.amazonpricetracker' : 'com.local.amazonpricetracker.dev')
+if (process.platform === 'win32') app.setAppUserModelId(app.isPackaged ? APP_ID : `${APP_ID}.dev`)
 
 app.whenReady().then(async () => {
   mark('ready')

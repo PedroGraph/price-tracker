@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import * as db from '../src/main/db'
-import { CARRIERS, carrierFromName, cleanShipment, parseServientrega, parseTemuOrders, parseTemuTrack, statusFromCarrier, STORES, trackingLink, universalLink } from '../src/shared/shipping'
+import { CARRIERS, carrierFromName, cleanShipment, parseServientrega, parseTemuOrders, parseTemuTrack, statusFromCarrier, STORES, trackingLink, universalLink, temuStateFromTrack } from '../src/shared/shipping'
 import { isAllowedExternal } from '../src/shared/urls'
 
 const base = { asin: null, title: ' Audífonos  Sony ', store: 'Temu', forwarder: null, carrier: null, tracking: null, status: 'ordered' }
@@ -139,6 +139,24 @@ describe('reading Temu orders', () => {
     expect(parseTemuOrders({ error_code: 40001 })).toBeNull()
     expect(parseTemuOrders({ view_orders: [] })).toEqual([])
   })
+
+  it('accepts wrapped order responses and alternate Temu field names', () => {
+    const result = parseTemuOrders({ data: { orders: [{ package_list: [{ packageSn: 'PK-W', product_name: 'Wrapped item', tracking_number: 'T-1', package_status_desc: 'En aduana', isDelivered: false }] }] } })!
+    expect(result[0]).toMatchObject({ id: 'PK-W', title: 'Wrapped item', tracking: 'T-1', state: 'En aduana' })
+    expect(statusFromCarrier(result[0].state)).toBe('customs')
+  })
+
+  it('accepts wrapped Temu tracking responses', () => {
+    expect(parseTemuTrack({ data: { logisticsTrackInfo: { trackNodeVOList: [{ operator_time_str: 'today', track_desc: 'En aduana', location: 'Bogotá' }] } } })).toEqual([
+      { at: 'today', text: 'En aduana', place: 'Bogotá' }
+    ])
+  })
+
+  it('lets the newest tracking event override a stale order-list state', () => {
+    const events = parseTemuTrack([{ operatorTimeStr: '15 octubre 2026, 12:52 pm', trackDesc: '¡Envío entregado!' }])!
+    expect(temuStateFromTrack(events)).toEqual({ state: '¡Envío entregado!', delivered: true })
+    expect(temuStateFromTrack(parseTemuTrack([{ trackDesc: 'Despacho de aduana' }])!)).toEqual({ state: 'Despacho de aduana', delivered: false })
+  })
 })
 
 describe('shipments read from a store', () => {
@@ -153,6 +171,13 @@ describe('shipments read from a store', () => {
     db.removeShipment(id)
     expect(db.listShipments()).toEqual([])
     expect(db.findImported('temu', 'PK-1')?.hidden).toBe(true)
+  })
+
+  it('refreshes a stale status even when the tracking state text is unchanged', () => {
+    const id = db.addImported('temu', 'PK-2', { asin: null, title: 'Aduana', store: 'Temu', forwarder: null, carrier: null, tracking: null, status: 'transit' })
+    const live = { state: 'Despacho de aduana', from: null, to: null, eta: null, events: [], checkedAt: '' }
+    db.setShipmentLive(id, live, 'customs')
+    expect(db.listShipments().find((s) => s.id === id)?.status).toBe('customs')
   })
 })
 

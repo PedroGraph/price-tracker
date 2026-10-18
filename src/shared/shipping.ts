@@ -149,13 +149,23 @@ export function amazonPackages(
 
 /** The movements on Temu's package tracking page (newest first, as it lists them). Null when they aren't there. */
 export function parseTemuTrack(nodes: unknown): ShipmentTracking['events'] | null {
-  if (!Array.isArray(nodes)) return null
+  const raw = nodes as { trackNodeVOList?: unknown; data?: { trackNodeVOList?: unknown; logisticsTrackInfo?: { trackNodeVOList?: unknown } } } | null
+  const list = Array.isArray(nodes) ? nodes : Array.isArray(raw?.trackNodeVOList) ? raw.trackNodeVOList : Array.isArray(raw?.data?.trackNodeVOList) ? raw.data.trackNodeVOList : raw?.data?.logisticsTrackInfo?.trackNodeVOList
+  if (!Array.isArray(list)) return null
   const events: ShipmentTracking['events'] = []
-  for (const n of nodes as Record<string, unknown>[]) {
-    const text = clean(n?.trackDesc) ?? clean(n?.status)
-    if (text) events.push({ at: clean(n.operatorTimeStr) ?? '', text: text.slice(0, 200), place: null })
+  for (const n of list as Record<string, unknown>[]) {
+    const text = clean(n?.trackDesc) ?? clean(n?.track_desc) ?? clean(n?.status) ?? clean(n?.statusDesc)
+    const at = clean(n.operatorTimeStr) ?? clean(n.operator_time_str) ?? clean(n.time)
+    if (text) events.push({ at: at ?? '', text: text.slice(0, 200), place: clean(n.location) })
   }
   return events.slice(0, 60)
+}
+
+/** Uses the newest Temu movement to repair a stale state from the order list. */
+export function temuStateFromTrack(events: ShipmentTracking['events']): { state: string; delivered: boolean } | null {
+  const latest = events[0]?.text?.trim()
+  if (!latest) return null
+  return { state: latest, delivered: /ENTREGAD|DELIVERED/.test(latest.toUpperCase()) && !/NO ENTREGAD|NOT DELIVERED/.test(latest.toUpperCase()) }
 }
 
 /**
@@ -163,26 +173,27 @@ export function parseTemuTrack(nodes: unknown): ShipmentTracking['events'] | nul
  * address it also carries. Null when the answer doesn't look like an order list.
  */
 export function parseTemuOrders(body: unknown): StorePackage[] | null {
-  const orders = (body as { view_orders?: unknown } | null)?.view_orders
+  const root = body as { view_orders?: unknown; data?: { view_orders?: unknown; orders?: unknown; order_list?: unknown }; result?: { view_orders?: unknown; orders?: unknown; order_list?: unknown } } | null
+  const orders = root?.view_orders ?? root?.data?.view_orders ?? root?.data?.orders ?? root?.data?.order_list ?? root?.result?.view_orders ?? root?.result?.orders ?? root?.result?.order_list
   if (!Array.isArray(orders)) return null
   const out: StorePackage[] = []
   for (const order of orders as { shipping_module?: { package_list?: unknown } }[]) {
-    const packages = order?.shipping_module?.package_list
+    const packages = order?.shipping_module?.package_list ?? (order as Record<string, unknown>)?.package_list
     for (const p of Array.isArray(packages) ? (packages as Record<string, unknown>[]) : []) {
-      const id = clean(p?.package_sn)
+      const id = clean(p?.package_sn) ?? clean(p?.packageSn) ?? clean(p?.package_id)
       if (!id) continue
       const goods = Array.isArray(p.goods_volist) ? (p.goods_volist as Record<string, unknown>[]) : []
-      const first = (clean(goods[0]?.goods_name) ?? 'Temu').slice(0, 150)
+      const first = (clean(goods[0]?.goods_name) ?? clean(p.product_name) ?? 'Temu').slice(0, 150)
       const count = typeof p.display_total_items_number === 'number' ? p.display_total_items_number : goods.length
-      const page = clean(p.package_detail_jump_url)?.replace(/^\//, '')
+      const page = clean(p.package_detail_jump_url ?? p.package_detail_url)?.replace(/^\//, '')
       out.push({
         id,
         title: count > 1 ? `${first} (+${count - 1})` : first,
-        carrier: clean(p.logistics_providers_name),
-        tracking: clean(p.way_bill_sn),
-        state: clean(p.order_package_status_desc) ?? '',
+        carrier: clean(p.logistics_providers_name) ?? clean(p.logistics_provider_name),
+        tracking: clean(p.way_bill_sn) ?? clean(p.tracking_number),
+        state: clean(p.order_package_status_desc) ?? clean(p.package_status_desc) ?? clean(p.status_desc) ?? '',
         eta: clean(p.expect_delivery_time_range),
-        delivered: p.is_delivered === true,
+        delivered: p.is_delivered === true || p.isDelivered === true,
         trackPage: page && /^bgst_express\.html\?[\w=&.%-]+$/.test(page) ? `https://www.temu.com/${page}` : null
       })
     }

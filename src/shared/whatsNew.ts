@@ -9,6 +9,21 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    version: '1.4.1',
+    notes: {
+      en: [
+        'Shipments now keep their current status in sync when a store reports a newer state.',
+        'Temu tracking can update an order from customs to delivered using the latest movement, including pages that render the status in the browser.',
+        'Windows now uses the Price Tracker icon for the app window and taskbar.'
+      ],
+      es: [
+        'Los envíos ahora mantienen sincronizado su estado cuando una tienda informa un estado nuevo.',
+        'El rastreo de Temu puede actualizar un pedido de aduana a entregado usando el movimiento más reciente, incluso cuando la página muestra el estado directamente en el navegador.',
+        'Windows ahora usa el ícono de Price Tracker en la ventana y la barra de tareas.'
+      ]
+    }
+  },
+  {
     version: '1.4.0',
     notes: {
       en: [

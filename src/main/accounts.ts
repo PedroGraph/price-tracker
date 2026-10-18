@@ -127,6 +127,8 @@ async function keep(reader: StoreReader, p: StorePackage, checkedAt: string): Pr
   }
   db.setImportedRoute(existing.id, carrier, p.tracking)
   const moved = !!p.state && p.state !== existing.live?.state
-  db.setShipmentLive(existing.id, live, moved ? status : null)
+  // Re-apply the derived status on every sync so a stale card status is
+  // corrected even when the store keeps the same state text.
+  db.setShipmentLive(existing.id, live, status)
   if (moved && existing.live?.state) await announce(existing, live).catch(() => undefined)
 }

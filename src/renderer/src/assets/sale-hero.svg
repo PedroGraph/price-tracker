@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 390" preserveAspectRatio="xMidYMid slice">
+  <!-- Matte black slabs, lit from above: the backdrop of the sale banner. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#333333" />
+      <stop offset="0.5" stop-color="#1d1d1d" />
+      <stop offset="1" stop-color="#0e0e0e" />
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5c5c5c" />
+      <stop offset="0.22" stop-color="#333333" />
+      <stop offset="1" stop-color="#141414" />
+    </linearGradient>
+    <linearGradient id="face2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#454545" />
+      <stop offset="1" stop-color="#131313" />
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8d8d8d" />
+      <stop offset="0.3" stop-color="#414141" />
+      <stop offset="1" stop-color="#151515" />
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.2" />
+      <stop offset="0.7" stop-color="#ffffff" stop-opacity="0.03" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+    <radialGradient id="light" cx="0.44" cy="0" r="0.95">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.2" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="16" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="390" fill="url(#bg)" />
+
+  <!-- Back panels. -->
+  <rect x="430" y="0" width="180" height="150" fill="url(#face2)" />
+  <rect x="610" y="0" width="250" height="250" fill="url(#face2)" />
+  <rect x="860" y="0" width="170" height="190" fill="#262626" />
+  <rect x="1030" y="0" width="170" height="220" fill="#1d1d1d" />
+
+  <!-- Shadowed gaps between them. -->
+  <rect x="598" y="0" width="26" height="260" fill="#000000" opacity="0.8" filter="url(#soft)" />
+  <rect x="848" y="0" width="22" height="200" fill="#000000" opacity="0.7" filter="url(#soft)" />
+
+  <!-- Front slabs. -->
+  <rect x="0" y="130" width="255" height="215" fill="url(#face)" />
+  <rect x="255" y="105" width="400" height="240" fill="url(#face)" />
+  <rect x="655" y="155" width="200" height="190" fill="url(#face2)" />
+
+  <!-- Lit top edges. -->
+  <rect x="0" y="130" width="255" height="2" fill="#ffffff" opacity="0.3" />
+  <rect x="255" y="105" width="400" height="2" fill="#ffffff" opacity="0.34" />
+  <rect x="655" y="155" width="200" height="2" fill="#ffffff" opacity="0.24" />
+
+  <!-- Light falling through the gap onto the floor. -->
+  <polygon points="612,0 700,0 830,345 700,345" fill="url(#beam)" opacity="0.85" />
+
+  <!-- Floor with a soft reflection of the slabs. -->
+  <rect y="345" width="1200" height="45" fill="url(#floor)" />
+  <rect x="255" y="345" width="400" height="26" fill="#ffffff" opacity="0.05" filter="url(#soft)" />
+
+  <rect width="1200" height="390" fill="url(#light)" />
+</svg>

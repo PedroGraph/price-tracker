@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, ExternalLink, Eye, Flame, Loader2, Plus, LayoutGrid, Package, Search, ShoppingBag, ShoppingCart, Star, Table2, Trash2, X } from 'lucide-react'
+import { Check, ExternalLink, Eye, Flame, Loader2, Plus, LayoutGrid, Package, Search, ShoppingCart, Star, Table2, Trash2, X } from 'lucide-react'
 import type { Notify } from '../App'
 import type { DashboardStats, Product, ProductSource, RadarDeal, SaleOutlook, SearchPage, SearchParams, Status } from '@shared/types'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
 import { buySignal, cleanDeal, formatCop, formatUsd, landedTotal } from '@shared/pricing'
 import { ChangePill, DeliveredTotal, SIGNAL_LABEL, Sparkline, Thumb, timeAgo } from '../ui'
+import { useStage } from '../stage'
+import saleHero from '../assets/sale-hero.svg'
 
 type Filter = 'all' | 'down' | 'up' | 'out'
 
@@ -114,6 +116,8 @@ export function Dashboard({
         type="text"
         autoFocus
         placeholder={t('Paste an Amazon product link or ASIN')}
+        spellCheck={false}
+        autoComplete="off"
         value={link}
         onChange={(e) => setLink(e.target.value)}
         onKeyDown={(e) => {
@@ -209,6 +213,9 @@ export function Dashboard({
               <input
                 type="text"
                 placeholder={t('Search products…')}
+                spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value)
@@ -338,11 +345,16 @@ function ProductCard({ product: p, onOpen }: { product: Product; onOpen: () => v
   // Where today's price sits between the lowest and highest of the recent checks.
   const [low, high] = [Math.min(...p.spark), Math.max(...p.spark)]
   const position = p.spark.length < 2 ? null : high === low ? 50 : Math.min(96, Math.max(4, ((p.spark.at(-1)! - low) / (high - low)) * 100))
+  // The photo's own backdrop, so the card doesn't frame it in a white box.
+  const stage = useStage(p.image)
 
   return (
-    <article className="card pc">
-      <div className="pc-img">
-        {p.image ? <img src={p.image} alt="" /> : <Package size={26} strokeWidth={1.5} />}
+    <article className="card pc" data-tone={stage.dark ? 'dark' : 'light'}>
+      <div
+        className={`pc-img${p.image ? '' : ' empty'}`}
+        style={p.image ? { background: stage.background } : undefined}
+      >
+        {p.image ? <img src={p.image} alt="" loading="lazy" /> : <Package size={40} strokeWidth={1.2} />}
         <div className="pc-badges">
           {p.targetPrice !== null && p.lastPrice !== null && p.lastPrice <= p.targetPrice && <span className="badge good">{t('Target reached')}</span>}
           {/* Only after an actual drop; an unchanged price is trivially the lowest. */}
@@ -571,30 +583,34 @@ function SaleBanner({ status, onOpen }: { status: Status | null; onOpen: (asin: 
   const when =
     sale.daysLeft === 0 ? t('starts today') : t(sale.daysLeft === 1 ? 'starts tomorrow' : 'starts in {n} days', { n: sale.daysLeft })
   return (
-    <section className="card sale-banner">
-      <div className="sale-head">
-        <ShoppingBag size={22} />
-        <div>
-          <h3>
-            {sale.name} {when}
-          </h3>
-          <p className="muted">
-            {date}
-            {sale.approximate && ` · ${t('approximate date')}`}
-          </p>
-        </div>
-      </div>
-      {likely.length > 0 && (
-        <div className="sale-likely">
-          <span className="muted">{t('Most likely to drop')}</span>
-          <div className="chips">
-            {likely.map((p) => (
-              <button key={p.asin} className="chip" onClick={() => onOpen(p.asin)} title={p.title}>
-                {p.title.split(/[,(|]/)[0].slice(0, 40)} · {fmt(p.price)}{' '}
-                <span className="faint">{p.drops > 0 ? t(p.drops === 1 ? 'dropped once' : 'dropped {n} times', { n: p.drops }) : t('moves {pct}%', { pct: p.volatility })}</span>
-              </button>
-            ))}
+    <section className="card sale-banner" style={{ backgroundImage: `url("${saleHero}")` }}>
+      <div className="sale-body">
+        <span className="sale-eyebrow">
+          <Flame size={13} /> {t('Upcoming sale')}
+        </span>
+        <h3 className="sale-title">{sale.name}</h3>
+        <p className="sale-date">
+          {when} · {date}
+          {sale.approximate && ` · ${t('approximate date')}`}
+        </p>
+        {likely.length > 0 && (
+          <div className="sale-likely">
+            <span className="sale-likely-label">{t('Most likely to drop')}</span>
+            <div className="chips">
+              {likely.map((p) => (
+                <button key={p.asin} className="chip" onClick={() => onOpen(p.asin)} title={p.title}>
+                  {p.title.split(/[,(|]/)[0].slice(0, 40)} · {fmt(p.price)}{' '}
+                  <span className="faint">{p.drops > 0 ? t(p.drops === 1 ? 'dropped once' : 'dropped {n} times', { n: p.drops }) : t('moves {pct}%', { pct: p.volatility })}</span>
+                </button>
+              ))}
+            </div>
           </div>
+        )}
+      </div>
+      {sale.daysLeft > 0 && (
+        <div className="sale-count">
+          <span className="sale-count-n">{sale.daysLeft}</span>
+          <span className="sale-count-l">{t(sale.daysLeft === 1 ? 'day left' : 'days left')}</span>
         </div>
       )}
     </section>

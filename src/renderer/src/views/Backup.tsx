@@ -10,7 +10,7 @@ const cleanError = (e: unknown): string =>
   e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
 
 /** Create a backup (optionally with keys, then always password-protected) or restore one. */
-export function Backup({ notify }: { notify: Notify }) {
+export function Backup({ id, notify }: { id?: string; notify: Notify }) {
   const { t, locale } = useT()
   const [mode, setMode] = useState<'idle' | 'create' | 'restore'>('idle')
   const [includeKeys, setIncludeKeys] = useState(false)
@@ -75,7 +75,7 @@ export function Backup({ notify }: { notify: Notify }) {
   }
 
   return (
-    <section className="card">
+    <section className="card" id={id}>
       <div className="row between">
         <div>
           <h3>{t('Backup')}</h3>

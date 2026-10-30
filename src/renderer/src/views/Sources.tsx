@@ -6,7 +6,7 @@ import { useT } from '../i18n'
 import { Toggle } from '../ui'
 
 /** What gets tracked besides the cart: "Saved for later" and wishlists. */
-export function Sources({ draft, save }: { draft: Settings; save: (patch: Partial<Settings>) => void }) {
+export function Sources({ id, draft, save }: { id?: string; draft: Settings; save: (patch: Partial<Settings>) => void }) {
   const { t } = useT()
   const [link, setLink] = useState('')
   const valid = wishlistId(link) !== null
@@ -19,7 +19,7 @@ export function Sources({ draft, save }: { draft: Settings; save: (patch: Partia
   }
 
   return (
-    <section className="card">
+    <section className="card" id={id}>
       <h3>{t('What to track')}</h3>
       <p className="sub">{t('Your Amazon cart is always tracked. Add more places:')}</p>
       <div className="toggle-row" style={{ marginTop: 8 }}>

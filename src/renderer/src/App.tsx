@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Notifications } from './Notifications'
-import { ChartColumn, ChevronLeft, LayoutGrid, Moon, RefreshCw, Settings as Gear, Sparkles, Sun, TrendingUp, Truck } from 'lucide-react'
+import { ChartColumn, ChevronLeft, LayoutGrid, Maximize2, Minimize2, Moon, RefreshCw, Settings as Gear, Sparkles, Sun, TrendingUp, Truck, X } from 'lucide-react'
 import { WHATS_NEW, type WhatsNewEntry } from '@shared/whatsNew'
 import type { DashboardStats, Product, Settings, Status } from '@shared/types'
 import { LangContext, useT } from './i18n'
@@ -98,6 +98,7 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
   const [theme, setTheme] = useState<Theme>(() =>
     load('theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
   )
+  const [maximized, setMaximized] = useState(false)
   const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
   const [, tick] = useState(0)
@@ -140,8 +141,13 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     store('theme', theme)
-    void window.api.setWindowTheme(theme === 'dark')
   }, [theme])
+
+  // The window is frameless; its buttons live in the top bar and follow the maximize state.
+  useEffect(() => {
+    void window.api.isWindowMaximized().then(setMaximized)
+    return window.api.onWindowMaximized(setMaximized)
+  }, [])
 
   const setCurrency = (c: DisplayCurrency): void => {
     setCurrencyState(c)
@@ -159,7 +165,31 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
 
   return (
     <MoneyContext.Provider value={{ currency, rate, setCurrency }}>
-      <header className="topbar">
+      <header
+        className="topbar"
+        onDoubleClick={(e) => {
+          // Only on empty parts of the bar, not on its buttons.
+          if ((e.target as HTMLElement).closest('button, input, a')) return
+          void window.api.toggleMaximizeWindow()
+        }}
+      >
+        {/* macOS-style window buttons: close, minimize, maximize. */}
+        <div className="win-controls">
+          <button className="win-dot close" title={t('Close')} aria-label={t('Close')} onClick={() => void window.api.closeWindow()}>
+            <X size={8} strokeWidth={3} />
+          </button>
+          <button className="win-dot min" title={t('Minimize')} aria-label={t('Minimize')} onClick={() => void window.api.minimizeWindow()}>
+            <span className="bar" />
+          </button>
+          <button
+            className="win-dot max"
+            title={maximized ? t('Restore') : t('Maximize')}
+            aria-label={maximized ? t('Restore') : t('Maximize')}
+            onClick={() => void window.api.toggleMaximizeWindow()}
+          >
+            {maximized ? <Minimize2 size={8} strokeWidth={3} /> : <Maximize2 size={8} strokeWidth={3} />}
+          </button>
+        </div>
         <div className="brand">
           <div className="logo">
             <TrendingUp size={16} />
@@ -213,6 +243,12 @@ function Shell({ settings, setSettings }: { settings: Settings | null; setSettin
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
         </div>
+        {/* A shimmer along the island's bottom edge while prices are being checked. */}
+        {status?.running && (
+          <span className="island-scan" aria-hidden>
+            <i />
+          </span>
+        )}
       </header>
 
       {signedOut && (

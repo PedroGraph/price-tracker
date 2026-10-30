@@ -1,3 +1,5 @@
+import type { WebhookKind } from './webhook'
+
 export type ThresholdUnit = 'percent' | 'USD' | 'COP'
 
 export interface Threshold {
@@ -336,6 +338,14 @@ export interface Settings {
   telegramEnabled: boolean
   telegramChatId: string | null
   hasTelegramToken: boolean
+  /** Send alerts to a webhook (Discord, Slack, ntfy, Home Assistant or your own server). */
+  webhookEnabled: boolean
+  /** True when a URL is saved; the URL itself is encrypted and never reaches the UI. */
+  hasWebhook: boolean
+  /** The service the saved URL points at, for the hint in Settings. */
+  webhookKind: WebhookKind | null
+  /** A sound and a notification that stays on screen for all-time lows and low stock. */
+  sniperAlerts: boolean
   /** Price alerts during these local hours wait until the window ends. */
   quietEnabled: boolean
   quietStart: number

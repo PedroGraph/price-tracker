@@ -11,7 +11,7 @@ const OUTCOME: Record<RunRecord['outcome'], string> = {
 }
 
 /** Recent checks, and a report to paste when something goes wrong. */
-export function Diagnostics({ status, notify }: { status: Status | null; notify: Notify }) {
+export function Diagnostics({ id, status, notify }: { id?: string; status: Status | null; notify: Notify }) {
   const { t, locale } = useT()
   const [runs, setRuns] = useState<RunRecord[]>([])
   const [open, setOpen] = useState(false)
@@ -21,7 +21,7 @@ export function Diagnostics({ status, notify }: { status: Status | null; notify:
   }, [open, status?.lastRunAt])
 
   return (
-    <section className="card">
+    <section className="card" id={id}>
       <div className="row between">
         <div>
           <h3>{t('Diagnostics')}</h3>

@@ -3,7 +3,7 @@ import { ArrowUpRight } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { cleanDeal, conditionGroup, landedTotal, offerUrl, priceWithCoupon, sellerUrl, thresholdInUsd } from '@shared/pricing'
 import { priceInsights } from '@shared/insights'
-import type { Comparison, PriceReading, Product, ReviewsInfo, StoreResult, Threshold, TrackerEvent } from '@shared/types'
+import type { Comparison, PriceReading, Product, ProductSource, ReviewsInfo, StoreResult, Threshold, TrackerEvent } from '@shared/types'
 import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
@@ -14,6 +14,14 @@ import { BuySignal, ChangePill, EVENT_LABEL, Segmented, Sparkline, Thumb, timeAg
 const run = (iso: string): string => iso.slice(0, 16)
 
 const CONDITION_LABELS = { new: 'New', renewed: 'Renewed', used: 'Used' } as const
+
+/** Where the product comes from, as a chip on the hero. */
+const SOURCE_LABEL: Record<ProductSource, string> = {
+  cart: 'In your cart',
+  saved: 'Saved for later',
+  wishlist: 'Wishlists',
+  manual: 'Outside the cart'
+}
 
 export function ProductDetail({
   product,
@@ -144,79 +152,114 @@ export function ProductDetail({
 
   return (
     <div className="detail">
-      <div className="col">
-        <div className="title-row">
+      <section className="detail-hero">
+        <div className="hero-media">
           <Thumb src={product.image} large />
-          <div>
-            <h2>{product.title}</h2>
-            <div className="row">
-              <a href={product.url} target="_blank" rel="noreferrer">
-                {t('Open on Amazon')} <ArrowUpRight size={14} />
-              </a>
-              {product.active && (
-                <button
-                  className="btn small"
-                  onClick={() =>
-                    void window.api.removeProduct(product.asin).then(() => {
-                      notify(t(product.source === 'manual' ? 'Stopped tracking. The price history is kept.' : 'Stopped tracking. It stays off even while it is on Amazon; add it by link to track it again.'))
-                      onRemoved()
-                    })
-                  }
-                >
-                  {t('Stop tracking')}
-                </button>
-              )}
-            </div>
+          {product.available === false && <span className="hero-flag">{t('Out of stock')}</span>}
+        </div>
+
+        <div className="hero-info">
+          <div className="hero-chips">
+            <span className="hero-chip">{t(SOURCE_LABEL[product.source])}</span>
+            {product.available !== false && (
+              <span className="hero-chip ok">
+                <span className="dot" /> {t('In stock')}
+              </span>
+            )}
+            {cleanDeal(product.deal) && <span className="hero-chip amber">{cleanDeal(product.deal)}</span>}
+            {product.coupon && (
+              <span className="hero-chip teal">
+                {product.coupon}
+                {priceWithCoupon(product.lastPrice, product.coupon) !== null && (
+                  <> · {t('≈ {price} with coupon', { price: fmt(priceWithCoupon(product.lastPrice, product.coupon)) })}</>
+                )}
+              </span>
+            )}
+          </div>
+
+          <h2 title={product.title}>{product.title}</h2>
+
+          <div className="hero-meta">
+            {product.rating !== null && (
+              <span className="hero-rating">
+                ★ {product.rating.toLocaleString(locale)}
+                <small> · {t('{n} ratings', { n: (product.reviewCount ?? 0).toLocaleString(locale) })}</small>
+              </span>
+            )}
+            {product.salesRank !== null && (
+              <span>
+                {t('#{rank} in {category}', { rank: product.salesRank.toLocaleString(locale), category: product.rankCategory ?? '' })}
+              </span>
+            )}
+            {product.lastCheckedAt && (
+              <span>
+                {t('Checked')} {timeAgo(product.lastCheckedAt, t)}
+              </span>
+            )}
+          </div>
+
+          <div className="hero-actions">
+            <a className="btn primary" href={product.url} target="_blank" rel="noreferrer">
+              {t('Open on Amazon')} <ArrowUpRight size={15} />
+            </a>
+            {product.active && (
+              <button
+                className="btn"
+                onClick={() =>
+                  void window.api.removeProduct(product.asin).then(() => {
+                    notify(t(product.source === 'manual' ? 'Stopped tracking. The price history is kept.' : 'Stopped tracking. It stays off even while it is on Amazon; add it by link to track it again.'))
+                    onRemoved()
+                  })
+                }
+              >
+                {t('Stop tracking')}
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="card current">
-          <label>{t('Current price')}</label>
-          <div className="priceline">
-            <span className="big">{fmt(product.lastPrice)}</span>
-            <ChangePill from={base} to={product.lastPrice} suffix=" from base price" />
+        <div className="hero-price">
+          <span className="hero-label">{t('Current price')}</span>
+          <div className="hero-amount">
+            <span className="hero-number">{fmt(product.lastPrice)}</span>
+            <ChangePill from={base} to={product.lastPrice} />
           </div>
-          <div style={{ marginTop: 10 }}>
-            <BuySignal product={product} detailed />
+          <BuySignal product={product} detailed />
+        </div>
+      </section>
+
+      <div className="col">
+        <div className="card facts-card">
+          <div className="fact-grid">
+            <div className="fact">
+              <span className="fact-label">{t('Base price')}</span>
+              <strong className="fact-value">{fmt(base)}</strong>
+              <span className="fact-note">{t('set {when}', { when: timeAgo(product.baseSince, t) })}</span>
+            </div>
+            <div className="fact">
+              <span className="fact-label">{t('Lowest ever')}</span>
+              <strong className="fact-value">{fmt(product.lowestPrice)}</strong>
+              <span className="fact-note">{t('lowest {price} in 30 days', { price: fmt(product.lowest30) })}</span>
+            </div>
+            {product.lastPrice !== null && (product.lastShipping || product.lastImportFees) ? (
+              <div className="fact">
+                <span className="fact-label">{t('Delivered total')}</span>
+                <strong className="fact-value">{fmt(product.lastPrice + (product.lastShipping ?? 0) + (product.lastImportFees ?? 0))}</strong>
+                <span className="fact-note">{t(product.lastImportFees ? 'with shipping and import fees' : 'with shipping')}</span>
+              </div>
+            ) : null}
           </div>
-          <div className="base-row">
-            <span className="muted">{t('Base price')} </span>
-            <strong>{fmt(base)}</strong> · {t('set {when}', { when: timeAgo(product.baseSince, t) })}
-            {product.lastShipping ? <> · {t('+ {amount} shipping (not counted)', { amount: fmt(product.lastShipping) })}</> : null}
-            {product.lastImportFees ? <> · {t('+ {amount} import fees (not counted)', { amount: fmt(product.lastImportFees) })}</> : null}
-            {product.lastSeller && (
-              <>
-                {' · '}
+          {(product.lastShipping || product.lastImportFees || product.lastSeller) && (
+            <div className="fact-foot">
+              {product.lastShipping ? <span>{t('+ {amount} shipping (not counted)', { amount: fmt(product.lastShipping) })}</span> : null}
+              {product.lastImportFees ? <span>{t('+ {amount} import fees (not counted)', { amount: fmt(product.lastImportFees) })}</span> : null}
+              {product.lastSeller && (
                 <a className="inline" href={offerUrl(product.asin, product.lastSellerId)} target="_blank" rel="noreferrer">
                   {product.lastSeller} ↗
                 </a>
-              </>
-            )}
-          </div>
-          {(product.coupon || product.deal) && (
-            <div className="promos">
-              {cleanDeal(product.deal) && <span className="badge deal">{cleanDeal(product.deal)}</span>}
-              {product.coupon && (
-                <span className="badge good">
-                  {product.coupon}
-                  {priceWithCoupon(product.lastPrice, product.coupon) !== null && (
-                    <> · {t('≈ {price} with coupon', { price: fmt(priceWithCoupon(product.lastPrice, product.coupon)) })}</>
-                  )}
-                </span>
               )}
             </div>
           )}
-          {product.lastPrice !== null && (product.lastShipping || product.lastImportFees) ? (
-            <div className="base-row">
-              <span className="muted">{t('Delivered total')} </span>
-              <strong>{fmt(product.lastPrice + (product.lastShipping ?? 0) + (product.lastImportFees ?? 0))}</strong>{' '}
-              {t(product.lastImportFees ? 'with shipping and import fees' : 'with shipping')}
-            </div>
-          ) : null}
-          <div className="base-row">
-            <span className="muted">{t('Lowest')} </span>
-            {tn('{ever} ever · {last30} in 30 days', { ever: <strong>{fmt(product.lowestPrice)}</strong>, last30: fmt(product.lowest30) })}
-          </div>
         </div>
 
         <div className="card">

@@ -1,6 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  Activity,
+  Archive,
+  BellRing,
+  CalendarClock,
+  CircleDollarSign,
+  Database,
+  Mail,
+  MonitorCog,
+  MoonStar,
+  Send,
+  ShoppingBag,
+  Timer,
+  TrendingDown,
+  UserRound,
+  Webhook,
+  Zap
+} from 'lucide-react'
 import { formatCop, formatUsd } from '@shared/pricing'
 import type { Settings, Status, Trm, UpdateState } from '@shared/types'
+import type { WebhookKind } from '@shared/webhook'
 import type { Notify } from '../App'
 import { useT } from '../i18n'
 import { useMoney } from '../money'
@@ -43,6 +62,44 @@ const UPDATE_LABEL: Record<UpdateState['status'], string> = {
 const cleanError = (e: unknown): string =>
   e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
 
+/** The service names shown after saving a webhook, matching what the main process detected. */
+const HOOK_KIND: Record<WebhookKind, string> = { discord: 'Discord', slack: 'Slack', ntfy: 'ntfy', json: 'JSON' }
+
+/**
+ * The settings page is long, so it gets its own sidebar: the sections below, grouped the way
+ * macOS System Settings groups them. Each one scrolls to its card.
+ */
+const SET_SECTIONS = [
+  { group: 'Account', items: [
+    { id: 'set-amazon', label: 'Amazon account', Icon: UserRound },
+    { id: 'set-sources', label: 'What to track', Icon: ShoppingBag }
+  ] },
+  { group: 'Alerts', items: [
+    { id: 'set-threshold', label: 'Global threshold', Icon: BellRing },
+    { id: 'set-sniper', label: 'Sniper alerts', Icon: Zap },
+    { id: 'set-summary', label: 'Summary', Icon: CalendarClock },
+    { id: 'set-quiet', label: 'Quiet hours', Icon: MoonStar },
+    { id: 'set-frequency', label: 'Check frequency', Icon: Timer }
+  ] },
+  { group: 'Channels', items: [
+    { id: 'set-email', label: 'Email alerts', Icon: Mail },
+    { id: 'set-telegram', label: 'Telegram alerts', Icon: Send },
+    { id: 'set-webhook', label: 'Webhook alerts', Icon: Webhook }
+  ] },
+  { group: 'Currency', items: [
+    { id: 'set-currency', label: 'Display currency', Icon: CircleDollarSign },
+    { id: 'set-trm', label: 'Dollar alert (TRM)', Icon: TrendingDown }
+  ] },
+  { group: 'Data & app', items: [
+    { id: 'set-data', label: 'Your data', Icon: Database },
+    { id: 'set-backup', label: 'Backup', Icon: Archive },
+    { id: 'set-app', label: 'App', Icon: MonitorCog },
+    { id: 'set-diagnostics', label: 'Diagnostics', Icon: Activity }
+  ] }
+] as const
+
+const SET_IDS = SET_SECTIONS.flatMap((g) => g.items.map((i) => i.id))
+
 export function SettingsView({
   settings,
   status,
@@ -64,6 +121,41 @@ export function SettingsView({
   const [sending, setSending] = useState(false)
   const [tgToken, setTgToken] = useState('')
   const [tgBusy, setTgBusy] = useState(false)
+  const [hookUrl, setHookUrl] = useState('')
+  const [hookBusy, setHookBusy] = useState(false)
+
+  const hook = async (fn: () => Promise<string>): Promise<void> => {
+    setHookBusy(true)
+    try {
+      notify(await fn())
+    } catch (e) {
+      notify(cleanError(e), true)
+    } finally {
+      setHookBusy(false)
+    }
+  }
+
+  const saveHook = (): Promise<void> =>
+    hook(async () => {
+      const kind = await window.api.setWebhook(hookUrl)
+      setHookUrl('')
+      const saved = await window.api.getSettings()
+      setDraft(saved)
+      onSaved(saved)
+      return kind ? t('Webhook saved: {service}.', { service: HOOK_KIND[kind] }) : t('Webhook removed.')
+    })
+
+  const removeHook = (): Promise<void> =>
+    hook(async () => {
+      await window.api.setWebhook(null)
+      const saved = await window.api.getSettings()
+      setDraft(saved)
+      onSaved(saved)
+      return t('Webhook removed.')
+    })
+
+  const testHook = (): Promise<void> =>
+    hook(async () => t('Test message sent to {service}.', { service: HOOK_KIND[await window.api.sendWebhookTest()] }))
 
   const tg = async (fn: () => Promise<string | void>): Promise<void> => {
     setTgBusy(true)
@@ -97,6 +189,43 @@ export function SettingsView({
   const pending = useRef<Partial<Settings>>({})
   const rate = draft.manualRate ?? status?.exchangeRate?.rate ?? null
   const signedIn = status?.session === 'logged_in'
+
+  // Which card the sidebar highlights; follows the page's scroll.
+  const [activeSection, setActiveSection] = useState<string>(SET_IDS[0])
+  // While a jump is animating, the highlight stays on the clicked section instead of the scroll spy.
+  const jump = useRef<string | null>(null)
+  useEffect(() => {
+    const scroller = document.querySelector('main')
+    if (!scroller) return
+    const onScroll = (): void => {
+      if (jump.current) return
+      // The last card whose top has gone past the top of the page is the one being read.
+      const line = scroller.getBoundingClientRect().top + 120
+      let current: string = SET_IDS[0]
+      for (const id of SET_IDS) {
+        const el = document.getElementById(id)
+        if (el && el.getBoundingClientRect().top <= line) current = id
+      }
+      // At the very bottom the last card may be too short to ever reach the line.
+      if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4) {
+        current = SET_IDS[SET_IDS.length - 1]
+      }
+      setActiveSection(current)
+    }
+    onScroll()
+    scroller.addEventListener('scroll', onScroll, { passive: true })
+    return () => scroller.removeEventListener('scroll', onScroll)
+  }, [])
+
+  const goTo = (id: string): void => {
+    setActiveSection(id)
+    jump.current = id
+    document.getElementById(id)?.scrollIntoView({
+      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start'
+    })
+    window.setTimeout(() => (jump.current = null), 900)
+  }
 
   // Every change saves on its own; typing is debounced and batched.
   const save = (patch: Partial<Settings>, delay = 0): void => {
@@ -146,7 +275,28 @@ export function SettingsView({
 
   return (
     <div className="settings">
-      <section className="card row between">
+      <nav className="set-nav" aria-label={t('Sections')}>
+        {SET_SECTIONS.map(({ group, items }) => (
+          <div className="set-group" key={group}>
+            <div className="set-group-title">{t(group)}</div>
+            {items.map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                className={activeSection === id ? 'set-item on' : 'set-item'}
+                aria-current={activeSection === id ? 'true' : undefined}
+                title={t(label)}
+                onClick={() => goTo(id)}
+              >
+                <Icon size={15} />
+                <span>{t(label)}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      <div className="settings-body">
+      <section className="card row between" id="set-amazon">
         <div>
           <h3>{t('Amazon account')}</h3>
           <div className="status-line">
@@ -178,9 +328,9 @@ export function SettingsView({
         </div>
       </section>
 
-      <Sources draft={draft} save={save} />
+      <Sources id="set-sources" draft={draft} save={save} />
 
-      <section className="card">
+      <section className="card" id="set-email">
         <h3>{t('Email alerts')}</h3>
         <p className="sub">{t('Sent with your own Resend account.')}</p>
         <label className="field-label">Resend API key</label>
@@ -230,7 +380,7 @@ export function SettingsView({
         </div>
       </section>
 
-      <section className="card">
+      <section className="card" id="set-telegram">
         <div className="row between">
           <div>
             <h3>{t('Telegram alerts')}</h3>
@@ -299,7 +449,48 @@ export function SettingsView({
         <p className="hint">{draft.telegramChatId ? t('Chat connected (id {id}).', { id: draft.telegramChatId }) : t('No chat connected yet.')}</p>
       </section>
 
-      <section className="card">
+      <section className="card" id="set-webhook">
+        <div className="row between">
+          <div>
+            <h3>{t('Webhook alerts')}</h3>
+            <p className="sub">{t('Send every alert to Discord, Slack, ntfy, Home Assistant or your own server.')}</p>
+          </div>
+          <Toggle on={draft.webhookEnabled} onChange={(v) => save({ webhookEnabled: v })} label={t('Webhook alerts')} />
+        </div>
+        <label className="field-label">{t('Webhook URL')}</label>
+        <div className="row">
+          <input
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            className="mono"
+            placeholder={draft.hasWebhook ? `••••••••••••••••••••  ${t('saved (encrypted)')}` : 'https://discord.com/api/webhooks/…'}
+            value={hookUrl}
+            onChange={(e) => setHookUrl(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && hookUrl.trim() && void saveHook()}
+          />
+          <button className="btn" onClick={() => void saveHook()} disabled={!hookUrl.trim() || hookBusy}>
+            {t('Save')}
+          </button>
+        </div>
+        <div className="row" style={{ marginTop: 14 }}>
+          <button className="btn primary" onClick={() => void testHook()} disabled={!draft.hasWebhook || hookBusy}>
+            {t('Send test message')}
+          </button>
+          {draft.hasWebhook && (
+            <button className="btn link" onClick={() => void removeHook()} disabled={hookBusy}>
+              {t('Remove')}
+            </button>
+          )}
+        </div>
+        <p className="hint">
+          {draft.hasWebhook
+            ? t('Sending to {service}.', { service: HOOK_KIND[draft.webhookKind ?? 'json'] })
+            : t('Discord, Slack, ntfy and Home Assistant each get their own format, chosen from the URL.')}
+        </p>
+      </section>
+
+      <section className="card" id="set-threshold">
         <h3>{t('Global alert threshold')}</h3>
         <p className="sub">{t('Applies to products without their own threshold.')}</p>
         <div style={{ marginTop: 14 }}>
@@ -325,7 +516,22 @@ export function SettingsView({
         </div>
       </section>
 
-      <section className="card">
+      <section className="card" id="set-sniper">
+        <div className="row between">
+          <div>
+            <h3>{t('Sniper alerts')}</h3>
+            <p className="sub">
+              {t('A sound and a notification that stays on screen for all-time lows and products about to sell out.')}
+            </p>
+          </div>
+          <Toggle on={draft.sniperAlerts} onChange={(v) => save({ sniperAlerts: v })} label={t('Sniper alerts')} />
+        </div>
+        <p className="hint">
+          {t('Only for a new all-time low or fewer than 3 units left. Works with desktop notifications off, so it reaches you with the app in the tray.')}
+        </p>
+      </section>
+
+      <section className="card" id="set-summary">
         <h3>{t('Summary')}</h3>
         <p className="sub">{t('A recap of every product by email and Telegram. Weekly summaries go out on Mondays.')}</p>
         <div className="row" style={{ marginTop: 14 }}>
@@ -343,7 +549,7 @@ export function SettingsView({
         </div>
       </section>
 
-      <section className="card">
+      <section className="card" id="set-quiet">
         <div className="row between">
           <div>
             <h3>{t('Quiet hours')}</h3>
@@ -370,7 +576,7 @@ export function SettingsView({
         )}
       </section>
 
-      <section className="card">
+      <section className="card" id="set-frequency">
         <h3>{t('Check frequency')}</h3>
         <div style={{ marginTop: 14 }}>
           <Segmented options={INTERVALS} value={String(draft.intervalMinutes)} onChange={(v) => save({ intervalMinutes: Number(v) })} />
@@ -378,7 +584,7 @@ export function SettingsView({
         <p className="hint">{t('Minimum 15 minutes between checks.')}</p>
       </section>
 
-      <section className="card">
+      <section className="card" id="set-currency">
         <div className="row between">
           <div>
             <h3>{t('Display currency')}</h3>
@@ -422,9 +628,9 @@ export function SettingsView({
         <p className="hint">{t("Amazon doesn't publish the rate it uses, so COP amounts are a close estimate.")}</p>
       </section>
 
-      <TrmCard draft={draft} save={save} />
+      <TrmCard id="set-trm" draft={draft} save={save} />
 
-      <section className="card row between">
+      <section className="card row between" id="set-data">
         <div>
           <h3>{t('Your data')}</h3>
           <p className="sub">{t('Every price reading of every product, as a CSV file for Excel or Google Sheets.')}</p>
@@ -442,9 +648,9 @@ export function SettingsView({
         </button>
       </section>
 
-      <Backup notify={notify} />
+      <Backup id="set-backup" notify={notify} />
 
-      <section className="card">
+      <section className="card" id="set-app">
         <h3>{t('App')}</h3>
         <div className="toggle-row" style={{ marginTop: 8 }}>
           <div>
@@ -502,20 +708,21 @@ export function SettingsView({
           )}
         </div>
       </section>
-      <Diagnostics status={status} notify={notify} />
+      <Diagnostics id="set-diagnostics" status={status} notify={notify} />
+      </div>
     </div>
   )
 }
 
 /** Alert when Colombia's official dollar rate (TRM) goes down to a target. */
-function TrmCard({ draft, save }: { draft: Settings; save: (patch: Partial<Settings>, delay?: number) => void }) {
+function TrmCard({ id, draft, save }: { id?: string; draft: Settings; save: (patch: Partial<Settings>, delay?: number) => void }) {
   const { t } = useT()
   const [trm, setTrm] = useState<Trm | null>(null)
   useEffect(() => {
     void window.api.getTrm().then(setTrm)
   }, [])
   return (
-    <section className="card">
+    <section className="card" id={id}>
       <div className="row between">
         <div>
           <h3>{t('Dollar alert (TRM)')}</h3>

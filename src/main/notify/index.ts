@@ -1,12 +1,14 @@
-import { Notification, nativeImage } from 'electron'
+import { Notification, nativeImage, shell } from 'electron'
 import { formatCop, formatUsd, offerUrl, priceWithCoupon } from '@shared/pricing'
 import type { EventType, Product } from '@shared/types'
+import type { WebhookMessage } from '@shared/webhook'
 import { getResendKey, getSettings, tr } from '../settings'
 import { isQuiet } from '@shared/schedule'
 import { getSetting, setSetting } from '../db'
 import { alertEmail, messageEmail, type EmailAlert } from './emailTemplate'
 import { toTelegramHtml } from './format'
 import { sendTelegram } from './telegram'
+import { sendWebhook } from './webhook'
 
 export interface Alert {
   product: Product
@@ -145,8 +147,47 @@ export async function sendSystemMessage(subject: string, html: string): Promise<
 
 /** An email and a Telegram message with their own formatting (summaries, warnings). */
 export async function sendReport(subject: string, emailHtml: string, telegramHtml: string, fullEmail = false): Promise<void> {
-  await deliver([sendSystemEmail(subject, emailHtml, fullEmail), sendTelegram(telegramHtml)])
+  await deliver([
+    sendSystemEmail(subject, emailHtml, fullEmail),
+    sendTelegram(telegramHtml),
+    sendWebhook({ title: subject, lines: [plain(emailHtml)] })
+  ])
 }
+
+/** The same alerts as plain text, for a webhook: one block per product. */
+function webhookAlerts(alerts: Alert[], rate: number | null): WebhookMessage {
+  const lines = alerts.map((a) => {
+    const extra = [
+      a.shipping ? tr('+ {amount} shipping', { amount: money(a.shipping, rate) }) : '',
+      a.seller ? tr('Seller: {seller}', { seller: a.seller }) : ''
+    ].filter(Boolean)
+    return [`${tr(LABELS[a.type])}: ${a.product.title.slice(0, 90)}`, summary(a, rate), ...extra].join('\n')
+  })
+  // A single alert gets the product link and picture; a batch gets the list only.
+  const one = alerts.length === 1 ? alerts[0] : null
+  return {
+    title: one ? tr(LABELS[one.type]) : tr('{n} price alerts', { n: alerts.length }),
+    lines,
+    url: one ? offerUrl(one.product.asin, one.sellerId) : null,
+    image: one?.product.image ?? null
+  }
+}
+
+/** Strips a card's HTML down to text for channels that don't render it. */
+const plain = (html: string): string =>
+  html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|tr|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 
 function telegramAlerts(alerts: Alert[], rate: number | null): string {
   return alerts
@@ -214,7 +255,7 @@ export async function flushQueuedAlerts(rate: number | null): Promise<void> {
 
 async function send(alerts: Alert[], rate: number | null): Promise<void> {
   showDesktop(alerts, rate)
-  await deliver([sendEmail(alerts, rate), sendTelegram(telegramAlerts(alerts, rate))])
+  await deliver([sendEmail(alerts, rate), sendTelegram(telegramAlerts(alerts, rate)), sendWebhook(webhookAlerts(alerts, rate))])
 }
 
 /** Returns the Resend email id so it can be looked up in the Resend dashboard. */
@@ -258,12 +299,30 @@ async function productIcon(url: string | null): Promise<Electron.NativeImage | u
   }
 }
 
+/**
+ * Sniper alerts: an all-time low, or a product about to sell out (3 or fewer). They get a
+ * sound and a notification that stays on screen, even with desktop notifications off.
+ */
+const isSniper = (a: Alert): boolean =>
+  a.type === 'all_time_low' || (a.type === 'low_stock' && a.product.stockLeft !== null && a.product.stockLeft < 3)
+
 function showDesktop(alerts: Alert[], rate: number | null): void {
-  if (!getSettings().desktopNotifications || !Notification.isSupported()) return
-  for (const a of alerts) {
-    if (a.shown) continue
+  if (!Notification.isSupported()) return
+  const { desktopNotifications, sniperAlerts } = getSettings()
+  const pending = alerts.filter((a) => !a.shown)
+  const snipers = new Set(sniperAlerts ? pending.filter(isSniper) : [])
+  // One beep for the batch, not one per product.
+  if (snipers.size > 0) shell.beep()
+  for (const a of pending) {
+    const sniper = snipers.has(a)
+    if (!desktopNotifications && !sniper) continue
     void productIcon(a.product.image).then((icon) => {
-      const n = new Notification({ title: `${tr(LABELS[a.type])} — ${a.product.title.slice(0, 50)}`, body: summary(a, rate), icon })
+      const n = new Notification({
+        title: `${sniper ? '🎯 ' : ''}${tr(LABELS[a.type])} — ${a.product.title.slice(0, 50)}`,
+        body: summary(a, rate),
+        icon,
+        ...(sniper ? { timeoutType: 'never' as const, urgency: 'critical' as const } : {})
+      })
       n.on('click', () => openProduct(a.product.asin))
       n.show()
     })

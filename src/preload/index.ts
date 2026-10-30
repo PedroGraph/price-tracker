@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { BackupInfo } from '../main/backup'
 import type { WhatsNewEntry } from '@shared/whatsNew'
+import type { WebhookKind } from '@shared/webhook'
 import type { HeatCell } from '@shared/insights'
 import type { RunRecord, DashboardStats, ExchangeRate, PriceReading, Product, SearchPage, SearchParams, Settings, Suggestion, AlertItem, SaleOutlook, ProductStats, ReviewsInfo, Purchase, Trm, Comparison, RadarDeal, LinkedStore, Shipment, ShipmentInput, ShipmentNotice, Status, Threshold, TrackerEvent } from '@shared/types'
 
@@ -22,6 +23,9 @@ const api = {
   getSettings: (): Promise<Settings> => ipcRenderer.invoke('settings:get'),
   saveSettings: (patch: Partial<Settings>): Promise<Settings> => ipcRenderer.invoke('settings:save', patch),
   setResendKey: (key: string | null): Promise<void> => ipcRenderer.invoke('settings:resendKey', key),
+  /** Stores the webhook URL and resolves to the service it points at. */
+  setWebhook: (url: string | null): Promise<WebhookKind | null> => ipcRenderer.invoke('webhook:set', url),
+  sendWebhookTest: (): Promise<WebhookKind> => ipcRenderer.invoke('webhook:test'),
   sendTestEmail: (): Promise<string> => ipcRenderer.invoke('email:test'),
   /** Validates and stores the bot token; resolves to the bot's @username. */
   setTelegramToken: (token: string | null): Promise<string | void> => ipcRenderer.invoke('telegram:token', token),
@@ -33,8 +37,17 @@ const api = {
   searchAmazon: (params: SearchParams): Promise<SearchPage> => ipcRenderer.invoke('amazon:search', params),
   openOnAmazon: (asin: string): Promise<void> => ipcRenderer.invoke('amazon:product', asin),
   listSuggestions: (): Promise<Suggestion[]> => ipcRenderer.invoke('suggestions:list'),
-  /** Matches the window buttons to the app's theme. */
-  setWindowTheme: (dark: boolean): Promise<void> => ipcRenderer.invoke('window:theme', dark),
+  /** The app's own window buttons (the window has no OS title bar). */
+  minimizeWindow: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
+  toggleMaximizeWindow: (): Promise<void> => ipcRenderer.invoke('window:toggleMaximize'),
+  closeWindow: (): Promise<void> => ipcRenderer.invoke('window:close'),
+  isWindowMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
+  /** Tells when the window is maximized or restored, to swap the button's icon. */
+  onWindowMaximized: (cb: (maximized: boolean) => void): (() => void) => {
+    const listener = (_e: unknown, maximized: boolean): void => cb(maximized)
+    ipcRenderer.on('window:maximized', listener)
+    return () => ipcRenderer.removeListener('window:maximized', listener)
+  },
   getReviews: (asin: string): Promise<ReviewsInfo | null> => ipcRenderer.invoke('products:reviews', asin),
   setPurchase: (asin: string, p: Purchase | null): Promise<void> => ipcRenderer.invoke('products:purchase', asin, p),
   listShipments: (): Promise<Shipment[]> => ipcRenderer.invoke('shipments:list'),

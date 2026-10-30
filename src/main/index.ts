@@ -21,12 +21,13 @@ import { diagnosticsReport } from './diagnostics'
 import { inspectBackup, restoreBackup, writeBackup } from './backup'
 import { cachedRate, currentRate, refreshRate } from './exchange'
 import { flushQueuedAlerts, onNotificationClick, sendTestEmail } from './notify'
+import { sendWebhookTest } from './notify/webhook'
 import { APP_URL, registerAppScheme, serveRenderer } from './appProtocol'
 import { mark } from './startup'
 import { showSplash } from './splash'
 import { amazonSession, clearAmazonSession, flushAmazonSession, openAmazonWindow, Scraper } from './scraper/amazon'
 import { denyPermissions, installGlobalGuards, isTrustedSender, openExternal, reencryptCookies } from './security'
-import { getSettings, saveSettings, setResendKey, setSecret, tr } from './settings'
+import { getSettings, saveSettings, setResendKey, setSecret, setWebhook, tr } from './settings'
 import { botName, sendTelegramTest } from './notify/telegram'
 import { detectChatWhilePaused, syncBot } from './notify/telegramBot'
 import { resolveAsin } from './resolveAsin'
@@ -70,11 +71,10 @@ function showWindow(): void {
   win.focus()
 }
 
-/** Window buttons (minimize, maximize, close) in the app's colors. */
-function overlayColors(dark: boolean): Electron.TitleBarOverlayOptions {
-  return dark ? { color: '#151a18', symbolColor: '#e2e0da', height: 52 } : { color: '#f6f5f2', symbolColor: '#1a1c19', height: 52 }
-}
-
+/**
+ * The window is frameless: the app draws its own top bar and its own window buttons, so no
+ * OS chrome (a separate strip of a different color) shows over the design.
+ */
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1200,
@@ -83,12 +83,10 @@ function createWindow(): void {
     minHeight: 560,
     show: false,
     // Paint the app's background right away instead of a white window while the page loads.
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0c1110' : '#e8e7e3',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#07080c' : '#eef0ee',
     title: 'Price Tracker',
     icon: resourceImage('icon.png') ?? resourceImage('icon.ico') ?? undefined,
-    // No Windows title bar: the app's own header is the bar, with the window buttons drawn over it.
-    titleBarStyle: 'hidden',
-    titleBarOverlay: overlayColors(nativeTheme.shouldUseDarkColors),
+    frame: false,
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -120,6 +118,10 @@ function createWindow(): void {
     }
   })
   win.on('closed', () => (win = null))
+  // The app's own window buttons show the right icon for the current state.
+  const sendMaximized = (): void => win?.webContents.send('window:maximized', win.isMaximized())
+  win.on('maximize', sendMaximized)
+  win.on('unmaximize', sendMaximized)
 
   // Links to known sites (Amazon, GitHub…) open in the browser; the UI itself never navigates away.
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -225,6 +227,9 @@ function registerIpc(): void {
     return saved
   })
   handle('settings:resendKey', (_e, key: string | null) => setResendKey(key))
+  // Only the service name comes back: the URL itself is a secret (Slack and Discord embed a token in it).
+  handle('webhook:set', (_e, url: string | null) => setWebhook(url))
+  handle('webhook:test', () => sendWebhookTest())
   handle('email:test', () => sendTestEmail())
   // The token is checked with Telegram before it's stored, and only the bot name goes back to the UI.
   handle('telegram:token', async (_e, token: string | null) => {
@@ -275,9 +280,15 @@ function registerIpc(): void {
     seenAt: db.getSetting<string | null>('alertsSeenAt', null)
   }))
   handle('notifications:seen', () => db.setSetting('alertsSeenAt', new Date().toISOString()))
-  handle('window:theme', (_e, dark: unknown) => {
-    if (process.platform === 'win32') win?.setTitleBarOverlay(overlayColors(dark === true))
+  handle('window:minimize', () => win?.minimize())
+  handle('window:toggleMaximize', () => {
+    if (!win) return
+    if (win.isMaximized()) win.unmaximize()
+    else win.maximize()
   })
+  // Same as the close button of any window: the tracker keeps running in the tray.
+  handle('window:close', () => win?.close())
+  handle('window:isMaximized', () => win?.isMaximized() ?? false)
   handle('products:reviews', (_e, asin: unknown) => (typeof asin === 'string' ? db.getReviews(asin) : null))
   handle('products:purchase', (_e, asin: unknown, p: unknown) => {
     if (typeof asin !== 'string') return
